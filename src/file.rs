@@ -34,7 +34,11 @@ impl<'a> From<&'a str> for Extent<'a> {
 }
 
 impl<'a> File<'a> {
-    fn len(&self) -> usize {
+    pub fn is_empty(&self) -> bool {
+        self.extents.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
         self.extents
             .last_key_value()
             .map(|((_, end), _)| *end)
@@ -43,7 +47,7 @@ impl<'a> File<'a> {
 
     /// Copy all of the extents in this file into a single contiguous array of
     /// bytes.
-    fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut v = vec![0; self.len()];
         for ((start, end), extent) in &self.extents {
             v[*start..*end].copy_from_slice(extent.data());
