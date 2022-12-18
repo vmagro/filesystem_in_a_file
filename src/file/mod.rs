@@ -1,23 +1,52 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct File<'a> {
-    extents: BTreeMap<(usize, usize), Extent<'a>>,
-}
+pub mod reader;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Extent<'a> {
+pub struct File<'a> {
+    extents: BTreeMap<usize, Extent<'a>>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) enum Extent<'a> {
     /// The source-of-truth for this data is the file that contains it. It
     /// originated from a write to that File, not a clone from another.
     Owned(Cow<'a, [u8]>),
 }
 
 impl<'a> Extent<'a> {
-    fn data(&self) -> &[u8] {
+    pub fn len(&self) -> usize {
+        self.data().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.data().is_empty()
+    }
+
+    pub fn data(&self) -> &[u8] {
         match self {
             Self::Owned(c) => c,
         }
+    }
+}
+
+impl<'a> std::fmt::Debug for Extent<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut d = f.debug_tuple(match self {
+            Self::Owned(_) => "Owned",
+        });
+
+        match std::str::from_utf8(self.data()) {
+            Ok(s) => {
+                d.field(&s);
+            }
+            Err(_) => {
+                d.field(&self.data());
+            }
+        }
+
+        d.finish()
     }
 }
 
@@ -41,7 +70,7 @@ impl<'a> File<'a> {
     pub fn len(&self) -> usize {
         self.extents
             .last_key_value()
-            .map(|((_, end), _)| *end)
+            .map(|(start, ext)| *start + ext.len())
             .unwrap_or(0)
     }
 
@@ -49,25 +78,31 @@ impl<'a> File<'a> {
     /// bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut v = vec![0; self.len()];
-        for ((start, end), extent) in &self.extents {
-            v[*start..*end].copy_from_slice(extent.data());
+        for (start, extent) in &self.extents {
+            let end = *start + extent.len();
+            v[*start..end].copy_from_slice(extent.data());
         }
         v
+    }
+
+    /// Find the extent that contains the byte at 'pos'
+    pub(self) fn extent_for_byte(&self, pos: usize) -> Option<(usize, &Extent<'a>)> {
+        self.extents
+            .range(..pos + 1)
+            .next_back()
+            .map(|(start, e)| (*start, e))
     }
 }
 
 #[cfg(test)]
-mod tests {
+pub(self) mod tests {
     use super::*;
 
-    fn test_file() -> File<'static> {
+    pub(crate) fn test_file() -> File<'static> {
         File {
             extents: BTreeMap::from([
-                ((0, "Lorem ipsum".len()), "Lorem ipsum".into()),
-                (
-                    ("Lorem ipsum".len(), "Lorem ipsum dolor sit amet".len()),
-                    " dolor sit amet".into(),
-                ),
+                (0, "Lorem ipsum".into()),
+                ("Lorem ipsum".len(), " dolor sit amet".into()),
             ]),
         }
     }
