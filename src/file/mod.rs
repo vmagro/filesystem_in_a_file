@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 pub mod reader;
+pub mod writer;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct File<'a> {
@@ -18,10 +19,6 @@ pub(crate) enum Extent<'a> {
 impl<'a> Extent<'a> {
     pub fn len(&self) -> usize {
         self.data().len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.data().is_empty()
     }
 
     pub fn data(&self) -> &[u8] {
@@ -63,6 +60,13 @@ impl<'a> From<&'a str> for Extent<'a> {
 }
 
 impl<'a> File<'a> {
+    /// Create a new, empty File
+    pub fn new() -> Self {
+        Self {
+            extents: BTreeMap::new(),
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.extents.is_empty()
     }
