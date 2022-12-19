@@ -63,8 +63,8 @@ pub(crate) mod tests {
                     Path::new("").into(),
                     Directory::builder()
                         .mode(Mode::from_bits_truncate(0o755))
-                        .uid(Uid::from_raw(115203))
-                        .gid(Gid::from_raw(100))
+                        .uid(Uid::current())
+                        .gid(Gid::current())
                         .build()
                         .into(),
                 ),
@@ -72,8 +72,8 @@ pub(crate) mod tests {
                     Path::new("testdata").into(),
                     Directory::builder()
                         .mode(Mode::from_bits_truncate(0o755))
-                        .uid(Uid::from_raw(115203))
-                        .gid(Gid::from_raw(100))
+                        .uid(Uid::current())
+                        .gid(Gid::current())
                         .build()
                         .into(),
                 ),
@@ -82,8 +82,8 @@ pub(crate) mod tests {
                     File::builder()
                         .contents(b"Lorem ipsum\n")
                         .mode(Mode::from_bits_truncate(0o644))
-                        .uid(Uid::from_raw(115203))
-                        .gid(Gid::from_raw(100))
+                        .uid(Uid::current())
+                        .gid(Gid::current())
                         .xattr(OsStr::new("user.demo"), &b"lorem ipsum"[..])
                         .build()
                         .into(),
@@ -92,8 +92,8 @@ pub(crate) mod tests {
                     Path::new("testdata/dir").into(),
                     Directory::builder()
                         .mode(Mode::from_bits_truncate(0o755))
-                        .uid(Uid::from_raw(115203))
-                        .gid(Gid::from_raw(100))
+                        .uid(Uid::current())
+                        .gid(Gid::current())
                         .build()
                         .into(),
                 ),
@@ -102,8 +102,8 @@ pub(crate) mod tests {
                     File::builder()
                         .contents(b"Lorem ipsum dolor sit amet\n")
                         .mode(Mode::from_bits_truncate(0o644))
-                        .uid(Uid::from_raw(115203))
-                        .gid(Gid::from_raw(100))
+                        .uid(Uid::current())
+                        .gid(Gid::current())
                         .build()
                         .into(),
                 ),

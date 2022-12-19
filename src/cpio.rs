@@ -96,13 +96,15 @@ impl<B: Backing> Cpio<B> {
 mod tests {
     use std::path::Path;
 
+    use pretty_assertions::assert_eq;
+
     use super::*;
     use crate::tests::demo_fs;
 
     #[test]
     fn cpio() {
         let file = std::fs::File::open(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/testdata.cpio"),
+            Path::new(env!("OUT_DIR")).join("testdata.cpio"),
         )
         .expect("failed to open testdata.cpio");
         let testdata_cpio = Cpio::from_file(file).expect("failed to load cpio");
@@ -121,12 +123,12 @@ mod tests {
     #[test]
     fn reflink_extract() {
         let file = std::fs::File::open(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/testdata.cpio"),
+            Path::new(env!("OUT_DIR")).join("testdata.cpio"),
         )
         .expect("failed to open testdata.cpio");
         let testdata_cpio = Cpio::from_file(file).expect("failed to load cpio");
 
-        let tmpdir = tempfile::TempDir::new_in(Path::new(env!("CARGO_MANIFEST_DIR")))
+        let tmpdir = tempfile::TempDir::new_in(Path::new(env!("OUT_DIR")))
             .expect("failed to create tmpdir");
 
         testdata_cpio

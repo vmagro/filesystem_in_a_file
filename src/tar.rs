@@ -102,13 +102,15 @@ impl<B: Backing> Tar<B> {
 mod tests {
     use std::path::Path;
 
+    use pretty_assertions::assert_eq;
+
     use super::*;
     use crate::tests::demo_fs;
 
     #[test]
     fn tar() {
         let file = std::fs::File::open(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/testdata.tar"),
+            Path::new(env!("OUT_DIR")).join("testdata.tar"),
         )
         .expect("failed to open testdata.tar");
         let testdata_tar = Tar::from_file(file).expect("failed to load tar");
@@ -122,12 +124,12 @@ mod tests {
     #[test]
     fn reflink_extract() {
         let file = std::fs::File::open(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/testdata.tar"),
+            Path::new(env!("OUT_DIR")).join("testdata.tar"),
         )
         .expect("failed to open testdata.tar");
         let testdata_tar = Tar::from_file(file).expect("failed to load tar");
 
-        let tmpdir = tempfile::TempDir::new_in(Path::new(env!("CARGO_MANIFEST_DIR")))
+        let tmpdir = tempfile::TempDir::new_in(Path::new(env!("OUT_DIR")))
             .expect("failed to create tmpdir");
 
         testdata_tar

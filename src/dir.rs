@@ -70,10 +70,11 @@ impl<'f> Filesystem<'f, 'f> {
 mod tests {
     use super::*;
     use crate::tests::demo_fs;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn from_dir() {
-        let fs = Filesystem::from_dir(&Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/fs"))
+        let fs = Filesystem::from_dir(&Path::new(env!("OUT_DIR")).join("fs"))
             .expect("failed to load from directory");
         assert_eq!(fs, demo_fs());
     }
