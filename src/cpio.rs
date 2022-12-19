@@ -77,7 +77,8 @@ impl<B: Backing> Cpio<B> {
                 let file_size = entry.file_size() as usize;
                 // the file starts at the header_start + HEADER_LEN + path, padded to
                 // the next multiple of 4, then 4 bytes after that
-                let file_start = (header_start_pos + HEADER_LEN + entry.name().len() + 3 & !3) + 4;
+                let file_start =
+                    ((header_start_pos + HEADER_LEN + entry.name().len() + 3) & !3) + 4;
                 let contents = &self.contents[file_start..file_start + file_size];
                 builder.contents(contents);
                 fs.entries.insert(path, builder.build().into());
