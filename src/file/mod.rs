@@ -198,6 +198,22 @@ impl<'a> Default for File<'a> {
     }
 }
 
+impl<'a> From<&'a [u8]> for File<'a> {
+    fn from(data: &'a [u8]) -> Self {
+        Self {
+            extents: BTreeMap::from([(0, data.into())]),
+        }
+    }
+}
+
+impl<'a, const N: usize> From<&'a [u8; N]> for File<'a> {
+    fn from(data: &'a [u8; N]) -> Self {
+        Self {
+            extents: BTreeMap::from([(0, Extent::from(&data[..]))]),
+        }
+    }
+}
+
 #[cfg(test)]
 pub(self) mod tests {
     use super::*;
