@@ -23,10 +23,6 @@ impl<'r, 'f> Read for Reader<'r, 'f> {
             Some((extent_start, ext)) => {
                 let remaining_in_extent = extent_start + ext.len() - self.pos;
                 let read_len = std::cmp::min(buf.len(), remaining_in_extent);
-                eprintln!(
-                    "reading {read_len} from extent at {extent_start} for {}: {ext:?}",
-                    self.pos
-                );
                 let extent_offset = self.pos - extent_start;
                 buf[..read_len]
                     .copy_from_slice(&ext.data()[extent_offset..extent_offset + read_len]);
