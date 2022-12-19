@@ -68,9 +68,10 @@ impl<'f> Filesystem<'f, 'f> {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use super::*;
     use crate::tests::demo_fs;
-    use pretty_assertions::assert_eq;
 
     #[test]
     fn from_dir() {

@@ -109,10 +109,8 @@ mod tests {
 
     #[test]
     fn tar() {
-        let file = std::fs::File::open(
-            Path::new(env!("OUT_DIR")).join("testdata.tar"),
-        )
-        .expect("failed to open testdata.tar");
+        let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.tar"))
+            .expect("failed to open testdata.tar");
         let testdata_tar = Tar::from_file(file).expect("failed to load tar");
         let fs = testdata_tar.filesystem().expect("failed to parse tar");
         let mut demo_fs = demo_fs();
@@ -123,14 +121,12 @@ mod tests {
 
     #[test]
     fn reflink_extract() {
-        let file = std::fs::File::open(
-            Path::new(env!("OUT_DIR")).join("testdata.tar"),
-        )
-        .expect("failed to open testdata.tar");
+        let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.tar"))
+            .expect("failed to open testdata.tar");
         let testdata_tar = Tar::from_file(file).expect("failed to load tar");
 
-        let tmpdir = tempfile::TempDir::new_in(Path::new(env!("OUT_DIR")))
-            .expect("failed to create tmpdir");
+        let tmpdir =
+            tempfile::TempDir::new_in(Path::new(env!("OUT_DIR"))).expect("failed to create tmpdir");
 
         testdata_tar
             .reflink_extract(tmpdir.path())

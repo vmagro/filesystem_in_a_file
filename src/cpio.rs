@@ -103,10 +103,8 @@ mod tests {
 
     #[test]
     fn cpio() {
-        let file = std::fs::File::open(
-            Path::new(env!("OUT_DIR")).join("testdata.cpio"),
-        )
-        .expect("failed to open testdata.cpio");
+        let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.cpio"))
+            .expect("failed to open testdata.cpio");
         let testdata_cpio = Cpio::from_file(file).expect("failed to load cpio");
         let fs = testdata_cpio.filesystem().expect("failed to parse cpio");
         let mut demo_fs = demo_fs();
@@ -122,14 +120,12 @@ mod tests {
 
     #[test]
     fn reflink_extract() {
-        let file = std::fs::File::open(
-            Path::new(env!("OUT_DIR")).join("testdata.cpio"),
-        )
-        .expect("failed to open testdata.cpio");
+        let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.cpio"))
+            .expect("failed to open testdata.cpio");
         let testdata_cpio = Cpio::from_file(file).expect("failed to load cpio");
 
-        let tmpdir = tempfile::TempDir::new_in(Path::new(env!("OUT_DIR")))
-            .expect("failed to create tmpdir");
+        let tmpdir =
+            tempfile::TempDir::new_in(Path::new(env!("OUT_DIR"))).expect("failed to create tmpdir");
 
         testdata_cpio
             .reflink_extract(tmpdir.path())
