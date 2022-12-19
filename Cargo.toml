@@ -12,3 +12,6 @@ thiserror = {version = "1", optional = true}
 [features]
 default = ["tar"]
 tar = ["dep:tar", "dep:thiserror"]
+
+[dev-dependencies]
+memmap = "0.7"

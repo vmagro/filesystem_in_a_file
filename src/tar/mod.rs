@@ -44,8 +44,16 @@ mod tests {
 
     #[test]
     fn tar() {
-        let fs = Filesystem::from_tar(include_bytes!("testdata/testdata.tar"))
-            .expect("failed to parse tar");
+        let file = std::fs::File::open(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tar/testdata/testdata.tar"),
+        )
+        .expect("failed to open testdata.tar");
+        let testdata_tar = unsafe {
+            memmap::MmapOptions::new()
+                .map(&file)
+                .expect("failed to mmap testdata.tar")
+        };
+        let fs = Filesystem::from_tar(&testdata_tar).expect("failed to parse tar");
         assert_eq!(
             fs,
             Filesystem {
