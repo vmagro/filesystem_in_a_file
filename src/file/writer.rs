@@ -29,11 +29,11 @@ impl<'f> File<'f> {
 impl<'r, 'f> Writer<'r, 'f> {
     /// Write some bytes into the [File] without making a copy of the underlying
     /// data like the [std::io::Write] implementation is forced to do.
-    pub fn write<B>(&mut self, buf: B)
+    pub fn write<E>(&mut self, extent: E)
     where
-        B: Into<Cow<'f, [u8]>>,
+        E: Into<Extent<'f>>,
     {
-        let extent = Extent::Owned(buf.into());
+        let extent = extent.into();
         let ext_len = extent.len();
         let write_start = self.pos;
         let write_end = write_start + ext_len;
@@ -60,7 +60,7 @@ impl<'r, 'f> Writer<'r, 'f> {
 
 impl<'r, 'f> Write for Writer<'r, 'f> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.write(buf.to_vec());
+        self.write(Extent::Owned(Cow::Owned(buf.to_vec())));
         Ok(buf.len())
     }
 

@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::ops::Range;
 
 pub mod reader;
 pub mod writer;
@@ -10,10 +11,12 @@ pub struct File<'a> {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) enum Extent<'a> {
+pub enum Extent<'a> {
     /// The source-of-truth for this data is the file that contains it. It
     /// originated from a write to that File, not a clone from another.
     Owned(Cow<'a, [u8]>),
+    /// This extent came from part of another File.
+    Cloned(Cloned<'a>),
 }
 
 impl<'a> Extent<'a> {
@@ -24,14 +27,33 @@ impl<'a> Extent<'a> {
     pub fn data(&self) -> &[u8] {
         match self {
             Self::Owned(c) => c,
+            Self::Cloned(c) => &c.data,
         }
     }
 
     fn split_at(&mut self, pos: usize) -> Extent<'a> {
         match self {
             Self::Owned(cow) => Self::Owned(split_cow_in_place(cow, pos)),
+            Self::Cloned(c) => {
+                let right = split_cow_in_place(&mut c.data, pos);
+                Self::Cloned(Cloned {
+                    src_file: c.src_file,
+                    src_range: (
+                        std::cmp::max(pos, c.src_range.0),
+                        std::cmp::min(pos, c.src_range.1),
+                    ),
+                    data: right,
+                })
+            }
         }
     }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct Cloned<'a> {
+    src_file: &'a File<'a>,
+    src_range: (usize, usize),
+    data: Cow<'a, [u8]>,
 }
 
 fn split_cow_in_place<'a>(cow: &mut Cow<'a, [u8]>, pos: usize) -> Cow<'a, [u8]> {
@@ -51,19 +73,43 @@ fn split_cow_in_place<'a>(cow: &mut Cow<'a, [u8]>, pos: usize) -> Cow<'a, [u8]> 
 
 impl<'a> std::fmt::Debug for Extent<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mut d = f.debug_tuple(match self {
-            Self::Owned(_) => "Owned",
-        });
+        match self {
+            Self::Owned(o) => {
+                let mut d = f.debug_tuple("Owned");
+                match std::str::from_utf8(o) {
+                    Ok(s) => {
+                        d.field(&s);
+                    }
+                    Err(_) => {
+                        d.field(&self.data());
+                    }
+                }
+                d.finish()
+            }
+            Self::Cloned(c) => f.debug_tuple("Cloned").field(&c).finish(),
+        }
+    }
+}
 
-        match std::str::from_utf8(self.data()) {
+impl<'a> std::fmt::Debug for Cloned<'a> {
+    #[deny(unused_variables)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let Self {
+            src_file,
+            src_range,
+            data,
+        } = self;
+        let mut d = f.debug_struct("Cloned");
+        d.field("src_file", &src_file);
+        d.field("src_range", &src_range);
+        match std::str::from_utf8(data) {
             Ok(s) => {
-                d.field(&s);
+                d.field("data", &s);
             }
             Err(_) => {
-                d.field(&self.data());
+                d.field("data", data);
             }
-        }
-
+        };
         d.finish()
     }
 }
@@ -127,6 +173,21 @@ impl<'a> File<'a> {
             .map(|(start, e)| (*start, e))
             .filter(|(start, e)| pos <= start + e.len())
     }
+
+    pub fn clone(&'a self, range: Range<usize>) -> Vec<Extent<'a>> {
+        let mut v = Vec::new();
+        for (ext_start, ext) in self.extents.range(range.clone()) {
+            let start = std::cmp::max(range.start, *ext_start);
+            let end = std::cmp::min(range.end, ext_start + ext.len());
+            let cloned = Extent::Cloned(Cloned {
+                src_file: self,
+                src_range: (start, end),
+                data: Cow::Borrowed(&ext.data()[start - ext_start..end - ext_start]),
+            });
+            v.push(cloned);
+        }
+        v
+    }
 }
 
 #[cfg(test)]
@@ -156,5 +217,21 @@ pub(self) mod tests {
         let left = ext;
         assert_eq!(left, "Lorem".into());
         assert_eq!(right, " ipsum".into());
+    }
+
+    #[test]
+    fn cloning() {
+        let f = test_file();
+        let extents = f.clone(0..5);
+        let mut f2 = File::new();
+        let mut w = f2.writer();
+        for ex in extents {
+            w.write(ex)
+        }
+        assert_eq!(
+            std::str::from_utf8(&f2.to_bytes()).expect("valid"),
+            "Lorem",
+            "{f2:?}"
+        );
     }
 }
