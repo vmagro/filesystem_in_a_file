@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::io::Read;
 use std::ops::Range;
 
 pub mod reader;
@@ -152,11 +153,8 @@ impl<'a> File<'a> {
     /// Copy all of the extents in this file into a single contiguous array of
     /// bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut v = vec![0; self.len()];
-        for (start, extent) in &self.extents {
-            let end = *start + extent.len();
-            v[*start..end].copy_from_slice(extent.data());
-        }
+        let mut v = Vec::with_capacity(self.len());
+        self.reader().read_to_end(&mut v).expect("infallible");
         v
     }
 

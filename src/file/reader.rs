@@ -4,12 +4,12 @@ use super::File;
 
 /// Read implementation for File structs
 pub struct Reader<'r, 'f> {
-    file: &'r mut File<'f>,
+    file: &'r File<'f>,
     pos: usize,
 }
 
 impl<'f> File<'f> {
-    pub fn reader<'r>(&'r mut self) -> Reader<'r, 'f> {
+    pub fn reader<'r>(&'r self) -> Reader<'r, 'f> {
         Reader { file: self, pos: 0 }
     }
 }
@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn read_all() {
-        let mut f = test_file();
+        let f = test_file();
         let mut buf = Vec::new();
         f.reader().read_to_end(&mut buf).expect("infallible");
         // file::tests::to_bytes already ensures that to_bytes is correct
