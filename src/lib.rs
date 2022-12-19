@@ -78,3 +78,71 @@ impl<'p, 'f> Filesystem<'p, 'f> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use std::ffi::OsStr;
+
+    use nix::sys::stat::Mode;
+    use nix::unistd::Gid;
+    use nix::unistd::Uid;
+
+    use super::*;
+    use crate::entry::Directory;
+
+    /// Standard demo filesystem to exercise a variety of formats.
+    pub(crate) fn demo_fs() -> Filesystem<'static, 'static> {
+        Filesystem {
+            entries: BTreeMap::from([
+                (
+                    Path::new("").into(),
+                    Directory::builder()
+                        .mode(Mode::from_bits_truncate(0o755))
+                        .uid(Uid::from_raw(1000))
+                        .gid(Gid::from_raw(1000))
+                        .build()
+                        .into(),
+                ),
+                (
+                    Path::new("testdata").into(),
+                    Directory::builder()
+                        .mode(Mode::from_bits_truncate(0o755))
+                        .uid(Uid::from_raw(1000))
+                        .gid(Gid::from_raw(1000))
+                        .build()
+                        .into(),
+                ),
+                (
+                    Path::new("testdata/lorem.txt").into(),
+                    File::builder()
+                        .contents(b"Lorem ipsum\n")
+                        .mode(Mode::from_bits_truncate(0o644))
+                        .uid(Uid::from_raw(1000))
+                        .gid(Gid::from_raw(1000))
+                        .xattr(OsStr::new("user.demo"), &b"lorem ipsum"[..])
+                        .build()
+                        .into(),
+                ),
+                (
+                    Path::new("testdata/dir").into(),
+                    Directory::builder()
+                        .mode(Mode::from_bits_truncate(0o755))
+                        .uid(Uid::from_raw(1000))
+                        .gid(Gid::from_raw(1000))
+                        .build()
+                        .into(),
+                ),
+                (
+                    Path::new("testdata/dir/lorem.txt").into(),
+                    File::builder()
+                        .contents(b"Lorem ipsum dolor sit amet\n")
+                        .mode(Mode::from_bits_truncate(0o644))
+                        .uid(Uid::from_raw(1000))
+                        .gid(Gid::from_raw(1000))
+                        .build()
+                        .into(),
+                ),
+            ]),
+        }
+    }
+}
