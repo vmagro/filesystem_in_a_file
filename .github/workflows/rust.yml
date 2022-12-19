@@ -68,3 +68,23 @@ jobs:
         with:
           command: clippy
           args: --all-features -- -D warnings
+
+  docs:
+    name: Rustdoc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --all-features --no-deps
+      - uses: actions/upload-artifact@v3
+        with:
+          name: docs
+          path: target/doc/
