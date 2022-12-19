@@ -26,6 +26,27 @@ impl<'a> Extent<'a> {
             Self::Owned(c) => c,
         }
     }
+
+    fn split_at(&mut self, pos: usize) -> Extent<'a> {
+        match self {
+            Self::Owned(cow) => Self::Owned(split_cow_in_place(cow, pos)),
+        }
+    }
+}
+
+fn split_cow_in_place<'a>(cow: &mut Cow<'a, [u8]>, pos: usize) -> Cow<'a, [u8]> {
+    match *cow {
+        Cow::Owned(ref mut d) => {
+            let mut right = d[pos..].to_vec();
+            right.truncate(pos);
+            Cow::Owned(right)
+        }
+        Cow::Borrowed(d) => {
+            let (left, right) = d.split_at(pos);
+            *cow = Cow::Borrowed(left);
+            Cow::Borrowed(right)
+        }
+    }
 }
 
 impl<'a> std::fmt::Debug for Extent<'a> {
@@ -115,5 +136,15 @@ pub(self) mod tests {
     fn to_bytes() {
         let f = test_file();
         assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet", "{:?}", f);
+    }
+
+    #[test]
+    fn extent_split() {
+        let mut ext: Extent = "Lorem ipsum".into();
+        assert_eq!(ext, "Lorem ipsum".into());
+        let right = ext.split_at("Lorem".len());
+        let left = ext;
+        assert_eq!(left, "Lorem".into());
+        assert_eq!(right, " ipsum".into());
     }
 }
