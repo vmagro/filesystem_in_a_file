@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "virtual_filesystem"
+name = "filesystem_in_a_file"
 version = "0.1.0"
 
 [dependencies]
