@@ -14,14 +14,12 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::Path;
 
-#[cfg(feature = "cpio")]
-mod cpio;
+#[cfg(feature = "archive")]
+pub mod archive;
 mod dir;
 mod entry;
 mod extract;
 pub mod file;
-#[cfg(feature = "tar")]
-mod tar;
 
 pub use entry::Entry;
 use file::File;
