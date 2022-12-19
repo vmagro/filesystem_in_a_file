@@ -19,7 +19,7 @@ impl<'f> Filesystem<'f, 'f> {
             let file_offset = entry.raw_file_position() as usize;
             let path = Cow::Owned(entry.path()?.to_path_buf());
             if entry.header().entry_type() == EntryType::Regular {
-                fs.files.insert(
+                fs.entries.insert(
                     path,
                     File::builder()
                         .contents(&contents[file_offset..file_offset + entry.size() as usize])
@@ -57,7 +57,7 @@ mod tests {
         assert_eq!(
             fs,
             Filesystem {
-                files: BTreeMap::from([
+                entries: BTreeMap::from([
                     (
                         Path::new("./lorem.txt").into(),
                         File::builder()

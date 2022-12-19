@@ -26,10 +26,10 @@ use extent::Extent;
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct File<'a> {
     extents: BTreeMap<u64, Extent<'a>>,
-    mode: Mode,
-    uid: Uid,
-    gid: Gid,
-    xattrs: BTreeMap<Cow<'a, OsStr>, Cow<'a, [u8]>>,
+    pub(crate) mode: Mode,
+    pub(crate) uid: Uid,
+    pub(crate) gid: Gid,
+    pub(crate) xattrs: BTreeMap<Cow<'a, OsStr>, Cow<'a, [u8]>>,
 }
 
 impl<'a> FileBuilder<'a> {
