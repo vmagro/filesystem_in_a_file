@@ -139,8 +139,7 @@ mod tests {
         assert_eq!(
             std::str::from_utf8(&f.to_bytes()).expect("valid"),
             "Lorem ipsum dolor sit amet",
-            "{:?}",
-            f
+            "{f:?}",
         );
         assert_eq!(f.extents.len(), 3);
         assert_eq!(

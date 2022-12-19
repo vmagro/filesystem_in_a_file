@@ -71,8 +71,7 @@ mod tests {
         assert_eq!(
             std::str::from_utf8(&buf).expect("is utf8"),
             "Lorem ipsum dolor sit amet",
-            "{:?}",
-            f
+            "{f:?}",
         );
         assert_eq!(f.extents.len(), 2);
     }

@@ -214,7 +214,7 @@ pub(self) mod tests {
     #[test]
     fn to_bytes() {
         let f = test_file();
-        assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet", "{:?}", f);
+        assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet", "{f:?}");
     }
 
     #[test]
