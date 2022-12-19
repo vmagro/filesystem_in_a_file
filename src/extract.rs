@@ -1,7 +1,7 @@
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
-use std::os::fd::AsRawFd;
+use std::os::unix::io::AsRawFd;
 use std::path::Path;
 
 use nix::fcntl::copy_file_range;
