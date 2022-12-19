@@ -37,8 +37,8 @@ impl<'a> Extent<'a> {
 fn split_cow_in_place<'a>(cow: &mut Cow<'a, [u8]>, pos: usize) -> Cow<'a, [u8]> {
     match *cow {
         Cow::Owned(ref mut d) => {
-            let mut right = d[pos..].to_vec();
-            right.truncate(pos);
+            let right = d[pos..].to_vec();
+            d.truncate(pos);
             Cow::Owned(right)
         }
         Cow::Borrowed(d) => {
@@ -116,6 +116,16 @@ impl<'a> File<'a> {
             .range(..pos + 1)
             .next_back()
             .map(|(start, e)| (*start, e))
+            .filter(|(start, e)| pos <= start + e.len())
+    }
+
+    /// See [File::extent_for_byte]
+    pub(self) fn extent_for_byte_mut(&mut self, pos: usize) -> Option<(usize, &mut Extent<'a>)> {
+        self.extents
+            .range_mut(..pos + 1)
+            .next_back()
+            .map(|(start, e)| (*start, e))
+            .filter(|(start, e)| pos <= start + e.len())
     }
 }
 
