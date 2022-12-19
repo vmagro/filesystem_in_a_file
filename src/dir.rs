@@ -1,4 +1,3 @@
-use std::fs::FileType;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
@@ -7,7 +6,7 @@ use nix::unistd::Gid;
 use nix::unistd::Uid;
 use walkdir::WalkDir;
 
-use crate::Entry;
+use crate::entry::Directory;
 use crate::File;
 use crate::Filesystem;
 
@@ -18,8 +17,29 @@ impl<'f> Filesystem<'f, 'f> {
         let mut fs = Self::new();
         for entry in WalkDir::new(path) {
             let entry = entry?;
+            eprintln!(
+                "{:?} {:?} {}",
+                entry.path(),
+                entry.file_type(),
+                entry.file_type().is_dir()
+            );
+            let relpath = entry
+                .path()
+                .strip_prefix(path)
+                .expect("symlink traversal is disabled, this path must be under the top directory")
+                .to_path_buf();
             let meta = entry.metadata()?;
             if entry.file_type().is_dir() {
+                let mut builder = Directory::builder();
+                builder
+                    .mode(Mode::from_bits_truncate(meta.mode()))
+                    .uid(Uid::from_raw(meta.uid()))
+                    .gid(Gid::from_raw(meta.gid()));
+                for name in xattr::list(entry.path())? {
+                    let val = xattr::get(entry.path(), &name)?.expect("must exist");
+                    builder.xattr(name, val);
+                }
+                fs.entries.insert(relpath.into(), builder.build().into());
             } else if entry.file_type().is_symlink() {
                 todo!()
             } else if entry.file_type().is_file() {
@@ -34,11 +54,7 @@ impl<'f> Filesystem<'f, 'f> {
                     let val = xattr::get(entry.path(), &name)?.expect("must exist");
                     builder.xattr(name, val);
                 }
-                let relpath = entry.path().strip_prefix(path).expect(
-                    "symlink traversal is disabled, this path must be under the top directory",
-                );
-                fs.entries
-                    .insert(relpath.to_path_buf().into(), builder.build().into());
+                fs.entries.insert(relpath.into(), builder.build().into());
             }
         }
         Ok(fs)
@@ -62,6 +78,15 @@ mod tests {
             Filesystem {
                 entries: BTreeMap::from([
                     (
+                        Path::new("").into(),
+                        Directory::builder()
+                            .mode(Mode::from_bits_truncate(0o755))
+                            .uid(Uid::from_raw(1000))
+                            .gid(Gid::from_raw(1000))
+                            .build()
+                            .into()
+                    ),
+                    (
                         Path::new("lorem.txt").into(),
                         File::builder()
                             .contents(b"Lorem ipsum\n")
@@ -69,6 +94,15 @@ mod tests {
                             .uid(Uid::from_raw(1000))
                             .gid(Gid::from_raw(1000))
                             .xattr(OsStr::new("user.demo"), &b"lorem ipsum"[..])
+                            .build()
+                            .into()
+                    ),
+                    (
+                        Path::new("dir").into(),
+                        Directory::builder()
+                            .mode(Mode::from_bits_truncate(0o755))
+                            .uid(Uid::from_raw(1000))
+                            .gid(Gid::from_raw(1000))
                             .build()
                             .into()
                     ),

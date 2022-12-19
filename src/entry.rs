@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::os::unix::fs::PermissionsExt;
 
+use derive_builder::Builder;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
@@ -59,10 +60,50 @@ impl<'f> From<Directory<'f>> for Entry<'f> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Builder)]
+#[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct Directory<'a> {
     mode: Mode,
     uid: Uid,
     gid: Gid,
     xattrs: BTreeMap<Cow<'a, OsStr>, Cow<'a, [u8]>>,
+}
+
+impl<'a> Directory<'a> {
+    pub fn builder() -> DirectoryBuilder<'a> {
+        DirectoryBuilder::default()
+    }
+}
+
+impl<'a> DirectoryBuilder<'a> {
+    /// Add a single xattr to the [Directory]
+    pub fn xattr(
+        &mut self,
+        name: impl Into<Cow<'a, OsStr>>,
+        value: impl Into<Cow<'a, [u8]>>,
+    ) -> &mut Self {
+        if self.xattrs.is_none() {
+            self.xattrs = Some(BTreeMap::new());
+        }
+        self.xattrs
+            .as_mut()
+            .expect("this is Some")
+            .insert(name.into(), value.into());
+        self
+    }
+
+    pub fn build(&mut self) -> Directory<'a> {
+        self.fallible_build().expect("infallible")
+    }
+}
+
+impl<'a> Default for Directory<'a> {
+    fn default() -> Self {
+        Self {
+            mode: Mode::from_bits_truncate(0o555),
+            uid: Uid::from_raw(0),
+            gid: Gid::from_raw(0),
+            xattrs: BTreeMap::new(),
+        }
+    }
 }
