@@ -25,7 +25,7 @@ use extent::Extent;
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct File<'a> {
-    extents: BTreeMap<usize, Extent<'a>>,
+    extents: BTreeMap<u64, Extent<'a>>,
     mode: Mode,
     uid: Uid,
     gid: Gid,
@@ -56,7 +56,7 @@ impl<'a> File<'a> {
         self.extents.is_empty()
     }
 
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> u64 {
         self.extents
             .last_key_value()
             .map(|(start, ext)| *start + ext.len())
@@ -66,13 +66,13 @@ impl<'a> File<'a> {
     /// Copy all of the extents in this file into a single contiguous array of
     /// bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut v = Vec::with_capacity(self.len());
+        let mut v = Vec::with_capacity(self.len() as usize);
         self.reader().read_to_end(&mut v).expect("infallible");
         v
     }
 
     /// Find the extent that contains the byte at 'pos'
-    pub(self) fn extent_for_byte(&self, pos: usize) -> Option<(usize, &Extent<'a>)> {
+    pub(self) fn extent_for_byte(&self, pos: u64) -> Option<(u64, &Extent<'a>)> {
         self.extents
             .range(..pos + 1)
             .next_back()
@@ -81,7 +81,7 @@ impl<'a> File<'a> {
     }
 
     /// See [File::extent_for_byte]
-    pub(self) fn extent_for_byte_mut(&mut self, pos: usize) -> Option<(usize, &mut Extent<'a>)> {
+    pub(self) fn extent_for_byte_mut(&mut self, pos: u64) -> Option<(u64, &mut Extent<'a>)> {
         self.extents
             .range_mut(..pos + 1)
             .next_back()
@@ -89,13 +89,13 @@ impl<'a> File<'a> {
             .filter(|(start, e)| pos <= start + e.len())
     }
 
-    pub fn clone(&'a self, range: Range<usize>) -> Vec<Extent<'a>> {
+    pub fn clone(&'a self, range: Range<u64>) -> Vec<Extent<'a>> {
         let mut v = Vec::new();
         let (start, _) = self.extent_for_byte(range.start).expect("invalid range");
         for (ext_start, ext) in self.extents.range(start..).take_while(|(start, ext)| {
             [
                 std::cmp::max(**start, range.start),
-                std::cmp::min(**start + ext.len(), range.end),
+                std::cmp::min(**start + (ext.len()), range.end),
             ]
             .iter()
             .any(|point| range.contains(point))
@@ -105,7 +105,9 @@ impl<'a> File<'a> {
             let cloned = Extent::Cloned(Cloned {
                 src_file: self,
                 src_range: (start, end),
-                data: Cow::Borrowed(&ext.data()[start - ext_start..end - ext_start]),
+                data: Cow::Borrowed(
+                    &ext.data()[(start - ext_start) as usize..(end - ext_start) as usize],
+                ),
             });
             v.push(cloned);
         }
@@ -133,7 +135,7 @@ pub(self) mod tests {
         File {
             extents: BTreeMap::from([
                 (0, "Lorem ipsum".into()),
-                ("Lorem ipsum".len(), " dolor sit amet".into()),
+                ("Lorem ipsum".len() as u64, " dolor sit amet".into()),
             ]),
             mode: Mode::from_bits_truncate(0o444),
             uid: Uid::from_raw(0),
@@ -151,7 +153,8 @@ pub(self) mod tests {
     #[test]
     fn cloning() {
         let f = test_file();
-        let extents = f.clone("Lorem ".len().."Lorem ".len() + "ipsum dolor".len());
+        let extents =
+            f.clone("Lorem ".len() as u64.."Lorem ".len() as u64 + "ipsum dolor".len() as u64);
         let mut f2 = File::new_empty();
         let mut w = f2.writer();
         assert_eq!(extents.len(), 2, "{extents:?}");

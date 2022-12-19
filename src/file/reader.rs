@@ -5,7 +5,7 @@ use super::File;
 /// [Read] implementation for [File]
 pub struct Reader<'r, 'f> {
     file: &'r File<'f>,
-    pos: usize,
+    pos: u64,
 }
 
 impl<'f> File<'f> {
@@ -22,11 +22,12 @@ impl<'r, 'f> Read for Reader<'r, 'f> {
         match self.file.extent_for_byte(self.pos) {
             Some((extent_start, ext)) => {
                 let remaining_in_extent = extent_start + ext.len() - self.pos;
-                let read_len = std::cmp::min(buf.len(), remaining_in_extent);
+                let read_len = std::cmp::min(buf.len(), remaining_in_extent as usize);
                 let extent_offset = self.pos - extent_start;
-                buf[..read_len]
-                    .copy_from_slice(&ext.data()[extent_offset..extent_offset + read_len]);
-                self.pos += read_len;
+                buf[..read_len].copy_from_slice(
+                    &ext.data()[extent_offset as usize..extent_offset as usize + read_len],
+                );
+                self.pos += read_len as u64;
                 Ok(read_len)
             }
             // this is impossible due to the length check above

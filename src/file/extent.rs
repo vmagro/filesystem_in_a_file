@@ -15,8 +15,8 @@ pub enum Extent<'a> {
 }
 
 impl<'a> Extent<'a> {
-    pub fn len(&self) -> usize {
-        self.data().len()
+    pub fn len(&self) -> u64 {
+        self.data().len() as u64
     }
 
     pub fn is_empty(&self) -> bool {
@@ -38,8 +38,8 @@ impl<'a> Extent<'a> {
                 Self::Cloned(Cloned {
                     src_file: c.src_file,
                     src_range: (
-                        std::cmp::max(pos, c.src_range.0),
-                        std::cmp::min(pos, c.src_range.1),
+                        std::cmp::max(pos as u64, c.src_range.0),
+                        std::cmp::min(pos as u64, c.src_range.1),
                     ),
                     data: right,
                 })
@@ -54,7 +54,7 @@ impl<'a> Extent<'a> {
 #[derive(Clone, PartialEq, Eq)]
 pub struct Cloned<'a> {
     pub(super) src_file: &'a File<'a>,
-    pub(super) src_range: (usize, usize),
+    pub(super) src_range: (u64, u64),
     pub(super) data: Cow<'a, [u8]>,
 }
 
