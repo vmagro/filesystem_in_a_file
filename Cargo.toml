@@ -5,16 +5,15 @@ version = "0.1.0"
 
 [dependencies]
 derive_builder = "0.12"
+memmap = {version = "0.7", optional = true}
 nix = "0.26"
 tar = {version = "0.4", optional = true}
-thiserror = {version = "1", optional = true}
 walkdir = "2"
 xattr = "1"
 
 [features]
 default = ["tar"]
-tar = ["dep:tar", "dep:thiserror"]
+tar = ["dep:tar", "dep:memmap"]
 
 [dev-dependencies]
-memmap = "0.7"
 tempfile = "3.3"

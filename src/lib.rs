@@ -34,6 +34,10 @@ impl<'p, 'f> Filesystem<'p, 'f> {
     }
 }
 
+mod __private {
+    pub trait Sealed {}
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use std::ffi::OsStr;

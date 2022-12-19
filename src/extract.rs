@@ -14,6 +14,12 @@ struct ReflinkInfo<'a> {
     backing_file: &'a std::fs::File,
 }
 
+/// Trait indicating support for efficient reflink-based extraction of a
+/// filesystem-in-a-file.
+pub trait ReflinkExtract {
+    fn reflink_extract(&self, dir: &Path) -> std::io::Result<()>;
+}
+
 impl<'p, 'f> Filesystem<'p, 'f> {
     /// Extract the in-memory representation of this [Filesystem] to a real
     /// on-disk filesystem.
