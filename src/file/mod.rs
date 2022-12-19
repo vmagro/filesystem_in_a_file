@@ -24,6 +24,10 @@ impl<'a> Extent<'a> {
         self.data().len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.data().is_empty()
+    }
+
     pub fn data(&self) -> &[u8] {
         match self {
             Self::Owned(c) => c,
@@ -187,6 +191,12 @@ impl<'a> File<'a> {
             v.push(cloned);
         }
         v
+    }
+}
+
+impl<'a> Default for File<'a> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

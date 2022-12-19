@@ -31,7 +31,7 @@ impl<'r, 'f> Read for Reader<'r, 'f> {
                 buf[..read_len]
                     .copy_from_slice(&ext.data()[extent_offset..extent_offset + read_len]);
                 self.pos += read_len;
-                return Ok(read_len);
+                Ok(read_len)
             }
             // this is impossible due to the length check above
             None => {
