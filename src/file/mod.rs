@@ -38,6 +38,22 @@ impl<'a> FileBuilder<'a> {
         self.extents(BTreeMap::from([(0, contents.into())]))
     }
 
+    /// Add a single xattr to the [File]
+    pub fn xattr(
+        &mut self,
+        name: impl Into<Cow<'a, OsStr>>,
+        value: impl Into<Cow<'a, [u8]>>,
+    ) -> &mut Self {
+        if self.xattrs.is_none() {
+            self.xattrs = Some(BTreeMap::new());
+        }
+        self.xattrs
+            .as_mut()
+            .expect("this is Some")
+            .insert(name.into(), value.into());
+        self
+    }
+
     pub fn build(&mut self) -> File<'a> {
         self.fallible_build().expect("infallible")
     }
