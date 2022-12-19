@@ -134,6 +134,12 @@ impl<'a, const N: usize> From<&'a [u8; N]> for Extent<'a> {
     }
 }
 
+impl<'a> From<Vec<u8>> for Extent<'a> {
+    fn from(data: Vec<u8>) -> Self {
+        Self::Owned(Cow::Owned(data))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::Path;
 
+mod dir;
 mod entry;
 pub mod file;
 #[cfg(feature = "tar")]

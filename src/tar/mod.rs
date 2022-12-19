@@ -57,10 +57,9 @@ mod tests {
 
     #[test]
     fn tar() {
-        let file = std::fs::File::open(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tar/testdata/testdata.tar"),
-        )
-        .expect("failed to open testdata.tar");
+        let file =
+            std::fs::File::open(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/tar/testdata.tar"))
+                .expect("failed to open testdata.tar");
         let testdata_tar = unsafe {
             memmap::MmapOptions::new()
                 .map(&file)
