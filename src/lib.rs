@@ -10,6 +10,8 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::Path;
 
+#[cfg(feature = "cpio")]
+mod cpio;
 mod dir;
 mod entry;
 mod extract;

@@ -46,6 +46,16 @@ impl<'f> Entry<'f> {
             Self::Directory(d) => &d.xattrs,
         }
     }
+
+    /// Some of our supported archive formats don't support xattrs, so make it
+    /// easy to remove them from the demo test data
+    #[cfg(test)]
+    pub(crate) fn clear_xattrs(&mut self) {
+        match self {
+            Self::File(f) => f.xattrs.clear(),
+            Self::Directory(d) => d.xattrs.clear(),
+        }
+    }
 }
 
 impl<'f> From<File<'f>> for Entry<'f> {

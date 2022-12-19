@@ -4,6 +4,7 @@ name = "filesystem_in_a_file"
 version = "0.1.0"
 
 [dependencies]
+cpio = {version = "0.2", optional = true}
 derive_builder = "0.12"
 memmap = {version = "0.7", optional = true}
 nix = "0.26"
@@ -12,8 +13,9 @@ walkdir = "2"
 xattr = "1"
 
 [features]
-default = ["tar"]
-tar = ["dep:tar", "dep:memmap"]
+cpio = ["dep:cpio", "dep:memmap"]
+default = ["cpio", "tar"]
+tar = ["dep:memmap", "dep:tar"]
 
 [dev-dependencies]
 tempfile = "3.3"
