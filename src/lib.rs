@@ -12,7 +12,7 @@ use std::path::Path;
 
 pub mod file;
 #[cfg(feature = "tar")]
-pub mod tar;
+mod tar;
 
 use file::File;
 
