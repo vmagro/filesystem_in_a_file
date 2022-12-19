@@ -16,6 +16,8 @@ use std::path::Path;
 
 #[cfg(feature = "archive")]
 pub mod archive;
+#[cfg(feature = "btrfs")]
+pub mod btrfs;
 mod dir;
 mod entry;
 mod extract;

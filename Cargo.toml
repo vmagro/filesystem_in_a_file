@@ -8,16 +8,21 @@ cpio = {version = "0.2", optional = true}
 derive_builder = "0.12"
 memmap = {version = "0.7", optional = true}
 nix = "0.26"
+sendstream_parser = {version = "0.1", optional = true}
 tar = {version = "0.4", optional = true}
 walkdir = "2"
 xattr = "1"
 
 [features]
 archive = []
+btrfs = ["dep:memmap", "dep:sendstream_parser"]
 cpio = ["archive", "dep:cpio", "dep:memmap"]
-default = ["cpio", "tar"]
+default = ["btrfs", "cpio", "tar"]
 tar = ["archive", "dep:memmap", "dep:tar"]
 
 [dev-dependencies]
 pretty_assertions = "1.3"
 tempfile = "3.3"
+
+[patch.crates-io]
+sendstream_parser = {path = "../sendstream_parser"}

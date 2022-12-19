@@ -47,6 +47,30 @@ impl<'f> Entry<'f> {
         }
     }
 
+    pub(crate) fn chown(&mut self, uid: Uid, gid: Gid) {
+        match self {
+            Self::File(f) => {
+                f.uid = uid;
+                f.gid = gid
+            }
+            Self::Directory(d) => {
+                d.uid = uid;
+                d.gid = gid
+            }
+        }
+    }
+
+    pub(crate) fn chmod(&mut self, mode: Mode) {
+        match self {
+            Self::File(f) => {
+                f.mode = mode;
+            }
+            Self::Directory(d) => {
+                d.mode = mode;
+            }
+        }
+    }
+
     /// Some of our supported archive formats don't support xattrs, so make it
     /// easy to remove them from the demo test data
     #[cfg(test)]
