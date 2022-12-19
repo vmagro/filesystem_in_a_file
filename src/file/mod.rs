@@ -12,6 +12,12 @@ use nix::unistd::Uid;
 pub mod reader;
 pub mod writer;
 
+/// A single file in the filesystem. This has a number of metadata attributes
+/// alongside the file contents.
+/// File contents are stored in Copy-on-Write [Extent]s that allow a [File] to
+/// be a completely zero-copy reference to the underlying filesystem-in-a-file
+/// but also be mutable (useful for things like BTRFS sendstreams that contain a
+/// sequence of mutation operations instead of raw file contents).
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct File<'a> {
@@ -23,6 +29,7 @@ pub struct File<'a> {
 }
 
 impl<'a> FileBuilder<'a> {
+    /// Set the contents of the [File] to a single [Extent] blob.
     pub fn contents(&mut self, contents: impl Into<Extent<'a>>) -> &mut Self {
         self.extents(BTreeMap::from([(0, contents.into())]))
     }
@@ -75,6 +82,9 @@ impl<'a> Extent<'a> {
     }
 }
 
+/// A Cloned [Extent] comes from another file. This extent references the
+/// original [File] and the location in that file for debuggability of BTRFS
+/// sendstreams.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Cloned<'a> {
     src_file: &'a File<'a>,

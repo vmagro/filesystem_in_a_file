@@ -9,7 +9,7 @@ use std::io::Write;
 use super::Extent;
 use super::File;
 
-/// [Write] implementation for File structs
+/// [Write] implementation for [File]s
 pub struct Writer<'r, 'f> {
     file: &'r mut File<'f>,
     pos: usize,

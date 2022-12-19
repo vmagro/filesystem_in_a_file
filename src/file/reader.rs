@@ -2,7 +2,7 @@ use std::io::Read;
 
 use super::File;
 
-/// Read implementation for File structs
+/// [Read] implementation for [File]
 pub struct Reader<'r, 'f> {
     file: &'r File<'f>,
     pos: usize,
