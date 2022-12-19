@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 use std::io::Cursor;
 
+use nix::sys::stat::Mode;
+use nix::unistd::Gid;
+use nix::unistd::Uid;
 use tar::Archive;
 use tar::EntryType;
 
@@ -18,7 +21,13 @@ impl<'f> Filesystem<'f, 'f> {
             if entry.header().entry_type() == EntryType::Regular {
                 fs.files.insert(
                     path,
-                    File::from(&contents[file_offset..file_offset + entry.size() as usize]).into(),
+                    File::builder()
+                        .contents(&contents[file_offset..file_offset + entry.size() as usize])
+                        .mode(Mode::from_bits_truncate(entry.header().mode()?))
+                        .uid(Uid::from_raw(entry.header().uid()? as u32))
+                        .gid(Gid::from_raw(entry.header().gid()? as u32))
+                        .build()
+                        .into(),
                 );
             }
         }
@@ -43,11 +52,23 @@ mod tests {
                 files: BTreeMap::from([
                     (
                         Path::new("./lorem.txt").into(),
-                        File::from(b"Lorem ipsum\n").into()
+                        File::builder()
+                            .contents(b"Lorem ipsum\n")
+                            .mode(Mode::from_bits_truncate(0o644))
+                            .uid(Uid::from_raw(1000))
+                            .gid(Gid::from_raw(1000))
+                            .build()
+                            .into()
                     ),
                     (
                         Path::new("./dir/lorem.txt").into(),
-                        File::from(b"Lorem ipsum dolor sit amet\n").into()
+                        File::builder()
+                            .contents(b"Lorem ipsum dolor sit amet\n")
+                            .mode(Mode::from_bits_truncate(0o644))
+                            .uid(Uid::from_raw(1000))
+                            .gid(Gid::from_raw(1000))
+                            .build()
+                            .into()
                     ),
                 ]),
             }

@@ -1,14 +1,35 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
 use std::io::Read;
 use std::ops::Range;
+
+use derive_builder::Builder;
+use nix::sys::stat::Mode;
+use nix::unistd::Gid;
+use nix::unistd::Uid;
 
 pub mod reader;
 pub mod writer;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Builder)]
+#[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct File<'a> {
     extents: BTreeMap<usize, Extent<'a>>,
+    mode: Mode,
+    uid: Uid,
+    gid: Gid,
+    xattrs: BTreeMap<Cow<'a, OsStr>, Cow<'a, [u8]>>,
+}
+
+impl<'a> FileBuilder<'a> {
+    pub fn contents(&mut self, contents: impl Into<Extent<'a>>) -> &mut Self {
+        self.extents(BTreeMap::from([(0, contents.into())]))
+    }
+
+    pub fn build(&mut self) -> File<'a> {
+        self.fallible_build().expect("infallible")
+    }
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -131,12 +152,19 @@ impl<'a> From<&'a str> for Extent<'a> {
     }
 }
 
+impl<'a, const N: usize> From<&'a [u8; N]> for Extent<'a> {
+    fn from(data: &'a [u8; N]) -> Self {
+        Extent::from(&data[..])
+    }
+}
+
 impl<'a> File<'a> {
-    /// Create a new, empty File
-    pub fn new() -> Self {
-        Self {
-            extents: BTreeMap::new(),
-        }
+    pub fn builder() -> FileBuilder<'a> {
+        FileBuilder::default()
+    }
+
+    pub fn new_empty() -> Self {
+        Self::builder().build()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -194,22 +222,12 @@ impl<'a> File<'a> {
 
 impl<'a> Default for File<'a> {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a> From<&'a [u8]> for File<'a> {
-    fn from(data: &'a [u8]) -> Self {
         Self {
-            extents: BTreeMap::from([(0, data.into())]),
-        }
-    }
-}
-
-impl<'a, const N: usize> From<&'a [u8; N]> for File<'a> {
-    fn from(data: &'a [u8; N]) -> Self {
-        Self {
-            extents: BTreeMap::from([(0, Extent::from(&data[..]))]),
+            extents: BTreeMap::new(),
+            mode: Mode::from_bits_truncate(0o444),
+            uid: Uid::from_raw(0),
+            gid: Gid::from_raw(0),
+            xattrs: BTreeMap::new(),
         }
     }
 }
@@ -224,6 +242,10 @@ pub(self) mod tests {
                 (0, "Lorem ipsum".into()),
                 ("Lorem ipsum".len(), " dolor sit amet".into()),
             ]),
+            mode: Mode::from_bits_truncate(0o444),
+            uid: Uid::from_raw(0),
+            gid: Gid::from_raw(0),
+            xattrs: BTreeMap::new(),
         }
     }
 
@@ -247,7 +269,7 @@ pub(self) mod tests {
     fn cloning() {
         let f = test_file();
         let extents = f.clone(0..5);
-        let mut f2 = File::new();
+        let mut f2 = File::new_empty();
         let mut w = f2.writer();
         for ex in extents {
             w.write(ex)

@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn overlapping_writes() {
-        let mut f = File::new();
+        let mut f = File::new_empty();
         let mut w = f.writer();
         w.write_all(b"Lorem lorem").expect("infallible");
         w.seek(SeekFrom::Start("Lorem ".len() as u64))

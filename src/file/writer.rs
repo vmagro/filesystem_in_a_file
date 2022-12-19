@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn appending_writes() {
-        let mut f = File::new();
+        let mut f = File::new_empty();
         let mut w = f.writer();
         w.write_all(b"Lorem ipsum").expect("infallible");
         w.write_all(b" dolor sit amet").expect("infallible");
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn overwrite() {
-        let mut f = File::new();
+        let mut f = File::new_empty();
         let mut w = f.writer();
         w.write_all(b"Lorem lorem").expect("infallible");
         w.seek(SeekFrom::Start("Lorem ".len() as u64))
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn internal_overwrite() {
-        let mut f = File::new();
+        let mut f = File::new_empty();
         let mut w = f.writer();
         w.write_all(b"Lorem lorem dolor sit amet")
             .expect("infallible");
