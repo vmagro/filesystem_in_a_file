@@ -10,4 +10,5 @@ tar = {version = "0.4", optional = true}
 thiserror = {version = "1", optional = true}
 
 [features]
+default = ["tar"]
 tar = ["dep:tar", "dep:thiserror"]
