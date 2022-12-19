@@ -91,7 +91,15 @@ impl<'a> File<'a> {
 
     pub fn clone(&'a self, range: Range<usize>) -> Vec<Extent<'a>> {
         let mut v = Vec::new();
-        for (ext_start, ext) in self.extents.range(range.clone()) {
+        let (start, _) = self.extent_for_byte(range.start).expect("invalid range");
+        for (ext_start, ext) in self.extents.range(start..).take_while(|(start, ext)| {
+            [
+                std::cmp::max(**start, range.start),
+                std::cmp::min(**start + ext.len(), range.end),
+            ]
+            .iter()
+            .any(|point| range.contains(point))
+        }) {
             let start = std::cmp::max(range.start, *ext_start);
             let end = std::cmp::min(range.end, ext_start + ext.len());
             let cloned = Extent::Cloned(Cloned {
@@ -143,15 +151,16 @@ pub(self) mod tests {
     #[test]
     fn cloning() {
         let f = test_file();
-        let extents = f.clone(0..5);
+        let extents = f.clone("Lorem ".len().."Lorem ".len() + "ipsum dolor".len());
         let mut f2 = File::new_empty();
         let mut w = f2.writer();
+        assert_eq!(extents.len(), 2, "{extents:?}");
         for ex in extents {
             w.write(ex)
         }
         assert_eq!(
             std::str::from_utf8(&f2.to_bytes()).expect("valid"),
-            "Lorem",
+            "ipsum dolor",
             "{f2:?}"
         );
     }
