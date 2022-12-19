@@ -25,7 +25,7 @@ use extent::Extent;
 #[derive(Debug, Clone, PartialEq, Eq, Builder)]
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct File<'a> {
-    extents: BTreeMap<u64, Extent<'a>>,
+    pub(crate) extents: BTreeMap<u64, Extent<'a>>,
     pub(crate) mode: Mode,
     pub(crate) uid: Uid,
     pub(crate) gid: Gid,

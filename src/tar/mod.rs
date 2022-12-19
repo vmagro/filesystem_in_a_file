@@ -91,4 +91,28 @@ mod tests {
         demo_fs.entries.remove(Path::new(""));
         assert_eq!(fs, demo_fs);
     }
+
+    #[test]
+    fn reflink_extract() {
+        let file = std::fs::File::open(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("testdata/testdata.tar"),
+        )
+        .expect("failed to open testdata.tar");
+        let testdata_tar = unsafe {
+            memmap::MmapOptions::new()
+                .map(&file)
+                .expect("failed to mmap testdata.tar")
+        };
+        let fs = Filesystem::from_tar(&testdata_tar).expect("failed to parse tar");
+
+        let tmpdir = tempfile::TempDir::new_in(Path::new(env!("CARGO_MANIFEST_DIR")))
+            .expect("failed to create tmpdir");
+
+        fs.reflink_extract(tmpdir.path(), &file, testdata_tar.as_ptr())
+            .expect("failed to extract");
+
+        let extracted_fs =
+            Filesystem::from_dir(tmpdir.path()).expect("failed to read extracted dir");
+        assert_eq!(extracted_fs, demo_fs());
+    }
 }

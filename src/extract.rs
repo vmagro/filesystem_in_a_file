@@ -1,8 +1,18 @@
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::io::Write;
+use std::os::fd::AsRawFd;
 use std::path::Path;
+
+use nix::fcntl::copy_file_range;
 
 use crate::Entry;
 use crate::Filesystem;
+
+struct ReflinkInfo<'a> {
+    base_ptr: *const u8,
+    backing_file: &'a std::fs::File,
+}
 
 impl<'p, 'f> Filesystem<'p, 'f> {
     /// Extract the in-memory representation of this [Filesystem] to a real
@@ -13,21 +23,26 @@ impl<'p, 'f> Filesystem<'p, 'f> {
 
     /// See [Filesystem::extract_to].
     /// By tracking the backing [std::fs::File], the extract implementation can
-    /// be more efficient by using copy_file_range. Because the Rust
-    /// implementation of [std::io::copy] is sealed to std-only types, we need
-    /// the caller to provide the backing file.
-    pub fn extract_with_backing_file_to(
+    /// be more efficient by using copy_file_range.
+    pub(crate) fn reflink_extract(
         &self,
-        backing_file: &std::fs::File,
         dir: &Path,
+        backing_file: &std::fs::File,
+        base_ptr: *const u8,
     ) -> std::io::Result<()> {
-        self.extract_to_internal(dir, Some(backing_file))
+        self.extract_to_internal(
+            dir,
+            Some(ReflinkInfo {
+                base_ptr,
+                backing_file,
+            }),
+        )
     }
 
     fn extract_to_internal(
         &self,
         dir: &Path,
-        backing_file: Option<&std::fs::File>,
+        mut reflink_info: Option<ReflinkInfo<'_>>,
     ) -> std::io::Result<()> {
         for (path, entry) in &self.entries {
             let dst_path = dir.join(path);
@@ -41,8 +56,30 @@ impl<'p, 'f> Filesystem<'p, 'f> {
                 }
                 Entry::File(f) => {
                     let mut dst_f = std::fs::File::create(&dst_path)?;
-                    // TODO: use copy_file_range when backing_file is provided
-                    dst_f.write_all(&f.to_bytes())?;
+                    if let Some(reflink_info) = reflink_info.as_mut() {
+                        eprintln!("doing reflink copy of {}", path.display());
+                        for extent in f.extents.values() {
+                            let offset_into_file = unsafe {
+                                extent.data().as_ptr().offset_from(reflink_info.base_ptr)
+                            };
+                            assert!(
+                                offset_into_file > 0,
+                                "offset_into_file should be positive if base_ptr is correct"
+                            );
+                            reflink_info
+                                .backing_file
+                                .seek(SeekFrom::Start(offset_into_file as u64))?;
+                            copy_file_range(
+                                reflink_info.backing_file.as_raw_fd(),
+                                None,
+                                dst_f.as_raw_fd(),
+                                None,
+                                extent.len() as usize,
+                            )?;
+                        }
+                    } else {
+                        dst_f.write_all(&f.to_bytes())?;
+                    }
                 }
             }
             std::fs::set_permissions(&dst_path, entry.permissions())?;
