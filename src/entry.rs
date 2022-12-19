@@ -40,7 +40,7 @@ impl<'f> Entry<'f> {
         }
     }
 
-    pub fn xattrs<'a>(&'a self) -> &BTreeMap<Cow<'a, OsStr>, Cow<'a, [u8]>> {
+    pub fn xattrs(&self) -> &BTreeMap<Cow<'_, OsStr>, Cow<'_, [u8]>> {
         match self {
             Self::File(f) => &f.xattrs,
             Self::Directory(d) => &d.xattrs,
