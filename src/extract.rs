@@ -88,16 +88,14 @@ impl<'p, 'f> Filesystem<'p, 'f> {
                 }
                 Entry::Symlink(s) => {
                     std::os::unix::fs::symlink(s.target(), &dst_path)?;
+                    std::os::unix::fs::lchown(
+                        &dst_path,
+                        Some(entry.metadata().uid().into()),
+                        Some(entry.metadata().gid().into()),
+                    )?;
                 }
             }
-            if matches!(entry, Entry::Symlink(_)) {
-                // symlinks only have ownership, not all the other stuff
-                std::os::unix::fs::lchown(
-                    &dst_path,
-                    Some(entry.metadata().uid().into()),
-                    Some(entry.metadata().gid().into()),
-                )?;
-            } else {
+            if !matches!(entry, Entry::Symlink(_)) {
                 std::fs::set_permissions(&dst_path, entry.metadata().permissions())?;
                 nix::unistd::chown(
                     &dst_path,
