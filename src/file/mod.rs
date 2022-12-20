@@ -1,13 +1,9 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
 use std::io::Read;
 use std::ops::Range;
 
 use derive_builder::Builder;
-use nix::sys::stat::Mode;
-use nix::unistd::Gid;
-use nix::unistd::Uid;
 
 pub mod extent;
 pub mod reader;
@@ -16,42 +12,25 @@ pub mod writer;
 use extent::Cloned;
 use extent::Extent;
 
+use crate::entry::Metadata;
+
 /// A single file in the filesystem. This has a number of metadata attributes
 /// alongside the file contents.
 /// File contents are stored in Copy-on-Write [Extent]s that allow a [File] to
 /// be a completely zero-copy reference to the underlying filesystem-in-a-file
 /// but also be mutable (useful for things like BTRFS sendstreams that contain a
 /// sequence of mutation operations instead of raw file contents).
-#[derive(Debug, Clone, PartialEq, Eq, Builder)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Builder)]
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct File<'a> {
     pub(crate) extents: BTreeMap<u64, Extent<'a>>,
-    pub(crate) mode: Mode,
-    pub(crate) uid: Uid,
-    pub(crate) gid: Gid,
-    pub(crate) xattrs: BTreeMap<Cow<'a, OsStr>, Cow<'a, [u8]>>,
+    pub(crate) metadata: Metadata<'a>,
 }
 
 impl<'a> FileBuilder<'a> {
     /// Set the contents of the [File] to a single [Extent] blob.
     pub fn contents(&mut self, contents: impl Into<Extent<'a>>) -> &mut Self {
         self.extents(BTreeMap::from([(0, contents.into())]))
-    }
-
-    /// Add a single xattr to the [File]
-    pub fn xattr(
-        &mut self,
-        name: impl Into<Cow<'a, OsStr>>,
-        value: impl Into<Cow<'a, [u8]>>,
-    ) -> &mut Self {
-        if self.xattrs.is_none() {
-            self.xattrs = Some(BTreeMap::new());
-        }
-        self.xattrs
-            .as_mut()
-            .expect("this is Some")
-            .insert(name.into(), value.into());
-        self
     }
 
     pub fn build(&mut self) -> File<'a> {
@@ -131,20 +110,12 @@ impl<'a> File<'a> {
     }
 }
 
-impl<'a> Default for File<'a> {
-    fn default() -> Self {
-        Self {
-            extents: BTreeMap::new(),
-            mode: Mode::from_bits_truncate(0o444),
-            uid: Uid::from_raw(0),
-            gid: Gid::from_raw(0),
-            xattrs: BTreeMap::new(),
-        }
-    }
-}
-
 #[cfg(test)]
 pub(self) mod tests {
+    use nix::sys::stat::Mode;
+    use nix::unistd::Gid;
+    use nix::unistd::Uid;
+
     use super::*;
 
     pub(crate) fn test_file() -> File<'static> {
@@ -153,10 +124,12 @@ pub(self) mod tests {
                 (0, "Lorem ipsum".into()),
                 ("Lorem ipsum".len() as u64, " dolor sit amet".into()),
             ]),
-            mode: Mode::from_bits_truncate(0o444),
-            uid: Uid::from_raw(0),
-            gid: Gid::from_raw(0),
-            xattrs: BTreeMap::new(),
+            metadata: Metadata {
+                mode: Mode::from_bits_truncate(0o444),
+                uid: Uid::from_raw(0),
+                gid: Gid::from_raw(0),
+                xattrs: BTreeMap::new(),
+            },
         }
     }
 

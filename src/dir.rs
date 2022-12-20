@@ -10,6 +10,7 @@ use nix::unistd::Uid;
 use walkdir::WalkDir;
 
 use crate::entry::Directory;
+use crate::entry::Metadata;
 use crate::File;
 use crate::Filesystem;
 
@@ -39,10 +40,14 @@ impl<'f> Filesystem<'f, 'f> {
                 fs.entries.insert(
                     relpath.into(),
                     Directory::builder()
-                        .mode(Mode::from_bits_truncate(meta.mode()))
-                        .uid(Uid::from_raw(meta.uid()))
-                        .gid(Gid::from_raw(meta.gid()))
-                        .xattrs(xattrs)
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(meta.mode()))
+                                .uid(Uid::from_raw(meta.uid()))
+                                .gid(Gid::from_raw(meta.gid()))
+                                .xattrs(xattrs)
+                                .build(),
+                        )
                         .build()
                         .into(),
                 );
@@ -53,10 +58,14 @@ impl<'f> Filesystem<'f, 'f> {
                     relpath.into(),
                     File::builder()
                         .contents(std::fs::read(entry.path())?)
-                        .mode(Mode::from_bits_truncate(meta.mode()))
-                        .uid(Uid::from_raw(meta.uid()))
-                        .gid(Gid::from_raw(meta.gid()))
-                        .xattrs(xattrs)
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(meta.mode()))
+                                .uid(Uid::from_raw(meta.uid()))
+                                .gid(Gid::from_raw(meta.gid()))
+                                .xattrs(xattrs)
+                                .build(),
+                        )
                         .build()
                         .into(),
                 );

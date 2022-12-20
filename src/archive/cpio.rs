@@ -10,6 +10,7 @@ use nix::unistd::Gid;
 use nix::unistd::Uid;
 
 use crate::entry::Directory;
+use crate::entry::Metadata;
 use crate::File;
 use crate::Filesystem;
 use crate::__private::Sealed;
@@ -62,18 +63,25 @@ impl<B: Backing> Cpio<B> {
                 fs.entries.insert(
                     path,
                     Directory::builder()
-                        .mode(mode)
-                        .uid(Uid::from_raw(entry.uid()))
-                        .gid(Gid::from_raw(entry.gid()))
+                        .metadata(
+                            Metadata::builder()
+                                .mode(mode)
+                                .uid(Uid::from_raw(entry.uid()))
+                                .gid(Gid::from_raw(entry.gid()))
+                                .build(),
+                        )
                         .build()
                         .into(),
                 );
             } else if sflag.contains(SFlag::S_IFREG) {
                 let mut builder = File::builder();
-                builder
-                    .mode(mode)
-                    .uid(Uid::from_raw(entry.uid()))
-                    .gid(Gid::from_raw(entry.gid()));
+                builder.metadata(
+                    Metadata::builder()
+                        .mode(mode)
+                        .uid(Uid::from_raw(entry.uid()))
+                        .gid(Gid::from_raw(entry.gid()))
+                        .build(),
+                );
                 let file_size = entry.file_size() as usize;
                 // the file starts at the header_start + HEADER_LEN + path, padded to
                 // the next multiple of 4, then 4 bytes after that
@@ -114,7 +122,7 @@ mod tests {
         demo_fs
             .entries
             .values_mut()
-            .for_each(|ent| ent.clear_xattrs());
+            .for_each(|ent| ent.metadata_mut().clear_xattrs());
         assert_eq!(fs, demo_fs);
     }
 
@@ -138,7 +146,7 @@ mod tests {
         demo_fs
             .entries
             .values_mut()
-            .for_each(|ent| ent.clear_xattrs());
+            .for_each(|ent| ent.metadata_mut().clear_xattrs());
         assert_eq!(extracted_fs, demo_fs);
     }
 }

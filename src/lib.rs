@@ -54,6 +54,7 @@ pub(crate) mod tests {
 
     use super::*;
     use crate::entry::Directory;
+    use crate::entry::Metadata;
 
     /// Standard demo filesystem to exercise a variety of formats.
     pub(crate) fn demo_fs() -> Filesystem<'static, 'static> {
@@ -62,18 +63,26 @@ pub(crate) mod tests {
                 (
                     Path::new("").into(),
                     Directory::builder()
-                        .mode(Mode::from_bits_truncate(0o755))
-                        .uid(Uid::current())
-                        .gid(Gid::current())
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(0o755))
+                                .uid(Uid::current())
+                                .gid(Gid::current())
+                                .build(),
+                        )
                         .build()
                         .into(),
                 ),
                 (
                     Path::new("testdata").into(),
                     Directory::builder()
-                        .mode(Mode::from_bits_truncate(0o755))
-                        .uid(Uid::current())
-                        .gid(Gid::current())
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(0o755))
+                                .uid(Uid::current())
+                                .gid(Gid::current())
+                                .build(),
+                        )
                         .build()
                         .into(),
                 ),
@@ -81,19 +90,27 @@ pub(crate) mod tests {
                     Path::new("testdata/lorem.txt").into(),
                     File::builder()
                         .contents(b"Lorem ipsum\n")
-                        .mode(Mode::from_bits_truncate(0o644))
-                        .uid(Uid::current())
-                        .gid(Gid::current())
-                        .xattr(OsStr::new("user.demo"), &b"lorem ipsum"[..])
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(0o644))
+                                .uid(Uid::current())
+                                .gid(Gid::current())
+                                .xattr(OsStr::new("user.demo"), &b"lorem ipsum"[..])
+                                .build(),
+                        )
                         .build()
                         .into(),
                 ),
                 (
                     Path::new("testdata/dir").into(),
                     Directory::builder()
-                        .mode(Mode::from_bits_truncate(0o755))
-                        .uid(Uid::current())
-                        .gid(Gid::current())
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(0o755))
+                                .uid(Uid::current())
+                                .gid(Gid::current())
+                                .build(),
+                        )
                         .build()
                         .into(),
                 ),
@@ -101,9 +118,13 @@ pub(crate) mod tests {
                     Path::new("testdata/dir/lorem.txt").into(),
                     File::builder()
                         .contents(b"Lorem ipsum dolor sit amet\n")
-                        .mode(Mode::from_bits_truncate(0o644))
-                        .uid(Uid::current())
-                        .gid(Gid::current())
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(0o644))
+                                .uid(Uid::current())
+                                .gid(Gid::current())
+                                .build(),
+                        )
                         .build()
                         .into(),
                 ),

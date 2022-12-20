@@ -14,6 +14,7 @@ use tar::Archive;
 use tar::EntryType;
 
 use crate::entry::Directory;
+use crate::entry::Metadata;
 use crate::File;
 use crate::Filesystem;
 use crate::__private::Sealed;
@@ -73,10 +74,14 @@ impl<B: Backing> Tar<B> {
                 fs.entries.insert(
                     path,
                     Directory::builder()
-                        .mode(Mode::from_bits_truncate(entry.header().mode()?))
-                        .uid(Uid::from_raw(entry.header().uid()? as u32))
-                        .gid(Gid::from_raw(entry.header().gid()? as u32))
-                        .xattrs(xattrs)
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(entry.header().mode()?))
+                                .uid(Uid::from_raw(entry.header().uid()? as u32))
+                                .gid(Gid::from_raw(entry.header().gid()? as u32))
+                                .xattrs(xattrs)
+                                .build(),
+                        )
                         .build()
                         .into(),
                 );
@@ -85,10 +90,14 @@ impl<B: Backing> Tar<B> {
                     path,
                     File::builder()
                         .contents(&self.contents[file_offset..file_offset + entry.size() as usize])
-                        .mode(Mode::from_bits_truncate(entry.header().mode()?))
-                        .uid(Uid::from_raw(entry.header().uid()? as u32))
-                        .gid(Gid::from_raw(entry.header().gid()? as u32))
-                        .xattrs(xattrs)
+                        .metadata(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(entry.header().mode()?))
+                                .uid(Uid::from_raw(entry.header().uid()? as u32))
+                                .gid(Gid::from_raw(entry.header().gid()? as u32))
+                                .xattrs(xattrs)
+                                .build(),
+                        )
                         .build()
                         .into(),
                 );

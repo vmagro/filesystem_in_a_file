@@ -1,11 +1,11 @@
 use std::borrow::Cow;
-use std::path::Path;
 
 use sendstream_parser::Command;
 use sendstream_parser::Error;
 use sendstream_parser::Sendstream;
 
 use crate::entry::Directory;
+use crate::File;
 use crate::Filesystem;
 
 pub struct Sendstreams<'s> {
@@ -20,7 +20,7 @@ impl<'s> Sendstreams<'s> {
 
 macro_rules! subvol_path {
     ($subvol:ident, $path:expr) => {
-        &Cow::Owned($subvol.path().join($path))
+        Cow::Owned($subvol.path().join($path))
     };
 }
 
@@ -40,15 +40,34 @@ impl<'s> Sendstreams<'s> {
                 match command {
                     Command::Chown(c) => {
                         fs.entries
-                            .get_mut(subvol_path!(subvol, c.path()))
+                            .get_mut(&subvol_path!(subvol, c.path()))
                             .expect("must exist")
                             .chown(c.uid(), c.gid());
                     }
                     Command::Chmod(c) => fs
                         .entries
-                        .get_mut(subvol_path!(subvol, c.path()))
+                        .get_mut(&subvol_path!(subvol, c.path()))
                         .expect("must exist")
                         .chmod(c.mode()),
+                    Command::Mkdir(m) => {
+                        fs.entries.insert(
+                            subvol_path!(subvol, m.path().path()),
+                            Directory::default().into(),
+                        );
+                    }
+                    Command::Mkfile(m) => {
+                        fs.entries.insert(
+                            subvol_path!(subvol, m.path().path()),
+                            File::default().into(),
+                        );
+                    }
+                    Command::Rename(r) => {
+                        let from = fs
+                            .entries
+                            .remove(&subvol_path!(subvol, r.from()))
+                            .expect("rename from must exist");
+                        fs.entries.insert(subvol_path!(subvol, r.to()), from);
+                    }
                     // Command::Mkfile(m) => {
 
                     // }

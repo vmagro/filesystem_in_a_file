@@ -88,9 +88,13 @@ impl<'p, 'f> Filesystem<'p, 'f> {
                     }
                 }
             }
-            std::fs::set_permissions(&dst_path, entry.permissions())?;
-            nix::unistd::chown(&dst_path, Some(entry.uid()), Some(entry.gid()))?;
-            for (name, val) in entry.xattrs() {
+            std::fs::set_permissions(&dst_path, entry.metadata().permissions())?;
+            nix::unistd::chown(
+                &dst_path,
+                Some(entry.metadata().uid()),
+                Some(entry.metadata().gid()),
+            )?;
+            for (name, val) in entry.metadata().xattrs() {
                 xattr::set(&dst_path, name, val)?;
             }
         }
