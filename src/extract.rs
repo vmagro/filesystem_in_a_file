@@ -87,6 +87,9 @@ impl<'p, 'f> Filesystem<'p, 'f> {
                         dst_f.write_all(&f.to_bytes())?;
                     }
                 }
+                Entry::Symlink(s) => {
+                    std::os::unix::fs::symlink(s.target(), &dst_path)?;
+                }
             }
             std::fs::set_permissions(&dst_path, entry.metadata().permissions())?;
             nix::unistd::chown(

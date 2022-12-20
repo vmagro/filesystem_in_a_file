@@ -9,6 +9,7 @@
 // both of these features are now stabilized in 1.66
 #![feature(map_first_last)]
 #![feature(mixed_integer_ops)]
+#![feature(io_error_other)]
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -29,7 +30,7 @@ use file::File;
 /// Full view of a filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Filesystem<'p, 'f> {
-    entries: BTreeMap<Cow<'p, Path>, Entry<'f>>,
+    entries: BTreeMap<Cow<'p, Path>, Entry<'p, 'f>>,
 }
 
 impl<'p, 'f> Filesystem<'p, 'f> {
@@ -55,10 +56,11 @@ pub(crate) mod tests {
     use super::*;
     use crate::entry::Directory;
     use crate::entry::Metadata;
+    use crate::entry::Symlink;
 
     /// Standard demo filesystem to exercise a variety of formats.
     pub(crate) fn demo_fs() -> Filesystem<'static, 'static> {
-        Filesystem {
+        let mut fs = Filesystem {
             entries: BTreeMap::from([
                 (
                     Path::new("").into(),
@@ -128,7 +130,22 @@ pub(crate) mod tests {
                         .build()
                         .into(),
                 ),
+                (
+                    Path::new("testdata/dir/symlink").into(),
+                    Symlink::new(
+                        Path::new("../lorem.txt"),
+                        Some(
+                            Metadata::builder()
+                                .mode(Mode::from_bits_truncate(0o777))
+                                .uid(Uid::current())
+                                .gid(Gid::current())
+                                .build(),
+                        ),
+                    )
+                    .into(),
+                ),
             ]),
-        }
+        };
+        fs
     }
 }

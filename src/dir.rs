@@ -11,6 +11,7 @@ use walkdir::WalkDir;
 
 use crate::entry::Directory;
 use crate::entry::Metadata;
+use crate::entry::Symlink;
 use crate::File;
 use crate::Filesystem;
 
@@ -52,7 +53,12 @@ impl<'f> Filesystem<'f, 'f> {
                         .into(),
                 );
             } else if entry.file_type().is_symlink() {
-                todo!()
+                let target = std::fs::read_link(entry.path())?;
+                let symlink_meta = std::fs::symlink_metadata(entry.path())?;
+                fs.entries.insert(
+                    relpath.into(),
+                    Symlink::new(target, Some(symlink_meta.into())).into(),
+                );
             } else if entry.file_type().is_file() {
                 fs.entries.insert(
                     relpath.into(),
@@ -86,6 +92,6 @@ mod tests {
     fn from_dir() {
         let fs = Filesystem::from_dir(&Path::new(env!("OUT_DIR")).join("fs"))
             .expect("failed to load from directory");
-        assert_eq!(fs, demo_fs());
+        assert_eq!(demo_fs(), fs);
     }
 }

@@ -1,11 +1,14 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
+use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 use derive_builder::Builder;
 use getset::CopyGetters;
 use getset::Getters;
+use nix::sys::stat::FileStat;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
@@ -14,17 +17,19 @@ use crate::File;
 
 /// A single directory entry in the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Entry<'f> {
+pub enum Entry<'p, 'f> {
     /// A regular file
     File(File<'f>),
     Directory(Directory<'f>),
+    Symlink(Symlink<'p, 'f>),
 }
 
-impl<'f> Entry<'f> {
+impl<'p, 'f> Entry<'p, 'f> {
     pub fn metadata(&self) -> &Metadata {
         match self {
             Self::File(f) => &f.metadata,
             Self::Directory(d) => &d.metadata,
+            Self::Symlink(s) => &s.metadata,
         }
     }
 
@@ -32,6 +37,7 @@ impl<'f> Entry<'f> {
         match self {
             Self::File(f) => &mut f.metadata,
             Self::Directory(d) => &mut d.metadata,
+            Self::Symlink(s) => &mut s.metadata,
         }
     }
 
@@ -106,6 +112,28 @@ impl<'f> Default for Metadata<'f> {
     }
 }
 
+impl<'f> From<FileStat> for Metadata<'f> {
+    fn from(fs: FileStat) -> Self {
+        Self {
+            mode: Mode::from_bits_truncate(fs.st_mode),
+            uid: Uid::from_raw(fs.st_uid),
+            gid: Gid::from_raw(fs.st_gid),
+            xattrs: BTreeMap::new(),
+        }
+    }
+}
+
+impl<'f> From<std::fs::Metadata> for Metadata<'f> {
+    fn from(fs: std::fs::Metadata) -> Self {
+        Self {
+            mode: Mode::from_bits_truncate(fs.mode()),
+            uid: Uid::from_raw(fs.uid()),
+            gid: Gid::from_raw(fs.gid()),
+            xattrs: BTreeMap::new(),
+        }
+    }
+}
+
 impl<'f> MetadataBuilder<'f> {
     /// Add a single xattr
     pub fn xattr(
@@ -128,15 +156,21 @@ impl<'f> MetadataBuilder<'f> {
     }
 }
 
-impl<'f> From<File<'f>> for Entry<'f> {
+impl<'p, 'f> From<File<'f>> for Entry<'p, 'f> {
     fn from(f: File<'f>) -> Self {
         Self::File(f)
     }
 }
 
-impl<'f> From<Directory<'f>> for Entry<'f> {
+impl<'p, 'f> From<Directory<'f>> for Entry<'p, 'f> {
     fn from(d: Directory<'f>) -> Self {
         Self::Directory(d)
+    }
+}
+
+impl<'p, 'f> From<Symlink<'p, 'f>> for Entry<'p, 'f> {
+    fn from(s: Symlink<'p, 'f>) -> Self {
+        Self::Symlink(s)
     }
 }
 
@@ -148,12 +182,29 @@ pub struct Directory<'f> {
 
 impl<'f> Directory<'f> {
     pub fn builder() -> DirectoryBuilder<'f> {
-        DirectoryBuilder::default()
+        Default::default()
     }
 }
 
 impl<'f> DirectoryBuilder<'f> {
     pub fn build(&mut self) -> Directory<'f> {
         self.fallible_build().expect("infallible")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Getters, CopyGetters)]
+pub struct Symlink<'p, 'f> {
+    #[get = "pub"]
+    /// Target path
+    target: Cow<'p, Path>,
+    metadata: Metadata<'f>,
+}
+
+impl<'p, 'f> Symlink<'p, 'f> {
+    pub fn new(target: impl Into<Cow<'p, Path>>, metadata: Option<Metadata<'f>>) -> Self {
+        Self {
+            target: target.into(),
+            metadata: metadata.unwrap_or_default(),
+        }
     }
 }

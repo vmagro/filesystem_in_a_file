@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::io::Cursor;
+use std::io::Read;
 use std::os::unix::ffi::OsStringExt;
 use std::path::Path;
 
@@ -15,6 +16,7 @@ use tar::EntryType;
 
 use crate::entry::Directory;
 use crate::entry::Metadata;
+use crate::entry::Symlink;
 use crate::File;
 use crate::Filesystem;
 use crate::__private::Sealed;
@@ -52,58 +54,80 @@ impl<B: Backing> Tar<B> {
     pub fn filesystem(&self) -> std::io::Result<Filesystem<'_, '_>> {
         let mut fs = Filesystem::new();
         for entry in Archive::new(Cursor::new(&self.contents)).entries_with_seek()? {
-            let mut entry = entry?;
+            let entry = entry?;
             let file_offset = entry.raw_file_position() as usize;
             let path = Cow::Owned(entry.path()?.to_path_buf());
-            let mut xattrs = BTreeMap::new();
-            if let Ok(Some(pax_extensions)) = entry.pax_extensions() {
-                for ext in pax_extensions.into_iter().filter_map(Result::ok) {
-                    if ext.key_bytes().starts_with(b"SCHILY.xattr.") {
-                        xattrs.insert(
-                            OsString::from_vec(ext.key_bytes()["SCHILY.xattr.".len()..].to_vec()),
-                            ext.value_bytes().to_vec(),
-                        );
-                    }
+            match entry.header().entry_type() {
+                EntryType::Directory => {
+                    fs.entries.insert(
+                        path,
+                        Directory::builder()
+                            .metadata(Metadata::try_from_entry(entry)?)
+                            .build()
+                            .into(),
+                    );
                 }
-            }
-            let xattrs = xattrs
-                .into_iter()
-                .map(|(k, v)| (k.into(), v.into()))
-                .collect::<BTreeMap<Cow<'_, OsStr>, Cow<'_, [u8]>>>();
-            if entry.header().entry_type() == EntryType::Directory {
-                fs.entries.insert(
-                    path,
-                    Directory::builder()
-                        .metadata(
-                            Metadata::builder()
-                                .mode(Mode::from_bits_truncate(entry.header().mode()?))
-                                .uid(Uid::from_raw(entry.header().uid()? as u32))
-                                .gid(Gid::from_raw(entry.header().gid()? as u32))
-                                .xattrs(xattrs)
-                                .build(),
-                        )
-                        .build()
-                        .into(),
-                );
-            } else if entry.header().entry_type() == EntryType::Regular {
-                fs.entries.insert(
-                    path,
-                    File::builder()
-                        .contents(&self.contents[file_offset..file_offset + entry.size() as usize])
-                        .metadata(
-                            Metadata::builder()
-                                .mode(Mode::from_bits_truncate(entry.header().mode()?))
-                                .uid(Uid::from_raw(entry.header().uid()? as u32))
-                                .gid(Gid::from_raw(entry.header().gid()? as u32))
-                                .xattrs(xattrs)
-                                .build(),
-                        )
-                        .build()
-                        .into(),
-                );
-            }
+                EntryType::Regular => {
+                    fs.entries.insert(
+                        path,
+                        File::builder()
+                            .contents(
+                                &self.contents[file_offset..file_offset + entry.size() as usize],
+                            )
+                            .metadata(Metadata::try_from_entry(entry)?)
+                            .build()
+                            .into(),
+                    );
+                }
+                EntryType::Symlink => {
+                    let link_target = entry
+                        .link_name()
+                        .ok()
+                        .flatten()
+                        .ok_or_else(|| {
+                            std::io::Error::other(format!(
+                                "symlink '{}' did not have target",
+                                path.display()
+                            ))
+                        })?
+                        .to_path_buf();
+                    fs.entries.insert(
+                        path.into(),
+                        Symlink::new(link_target, Some(Metadata::try_from_entry(entry)?)).into(),
+                    );
+                }
+                ty => {
+                    todo!("unhandled entry type {ty:?}");
+                }
+            };
         }
         Ok(fs)
+    }
+}
+
+impl<'f> Metadata<'f> {
+    fn try_from_entry<R: Read>(mut entry: tar::Entry<R>) -> std::io::Result<Self> {
+        let mut xattrs = BTreeMap::new();
+        if let Ok(Some(pax_extensions)) = entry.pax_extensions() {
+            for ext in pax_extensions.into_iter().filter_map(Result::ok) {
+                if ext.key_bytes().starts_with(b"SCHILY.xattr.") {
+                    xattrs.insert(
+                        OsString::from_vec(ext.key_bytes()["SCHILY.xattr.".len()..].to_vec()),
+                        ext.value_bytes().to_vec(),
+                    );
+                }
+            }
+        }
+        let xattrs = xattrs
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect::<BTreeMap<Cow<'_, OsStr>, Cow<'_, [u8]>>>();
+        Ok(Metadata::builder()
+            .mode(Mode::from_bits_truncate(entry.header().mode()?))
+            .uid(Uid::from_raw(entry.header().uid()? as u32))
+            .gid(Gid::from_raw(entry.header().gid()? as u32))
+            .xattrs(xattrs)
+            .build())
     }
 }
 
@@ -125,7 +149,7 @@ mod tests {
         let mut demo_fs = demo_fs();
         // tar is missing the top-level directory
         demo_fs.entries.remove(Path::new(""));
-        assert_eq!(fs, demo_fs);
+        assert_eq!(demo_fs, fs);
     }
 
     #[test]
@@ -143,6 +167,6 @@ mod tests {
 
         let extracted_fs =
             Filesystem::from_dir(tmpdir.path()).expect("failed to read extracted dir");
-        assert_eq!(extracted_fs, demo_fs());
+        assert_eq!(demo_fs(), extracted_fs);
     }
 }

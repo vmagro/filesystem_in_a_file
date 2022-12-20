@@ -123,7 +123,7 @@ mod tests {
             .entries
             .values_mut()
             .for_each(|ent| ent.metadata_mut().clear_xattrs());
-        assert_eq!(fs, demo_fs);
+        assert_eq!(demo_fs, fs);
     }
 
     #[test]
@@ -147,6 +147,6 @@ mod tests {
             .entries
             .values_mut()
             .for_each(|ent| ent.metadata_mut().clear_xattrs());
-        assert_eq!(extracted_fs, demo_fs);
+        assert_eq!(demo_fs, extracted_fs);
     }
 }
