@@ -63,7 +63,6 @@ impl<'p, 'f> Filesystem<'p, 'f> {
                 Entry::File(f) => {
                     let mut dst_f = std::fs::File::create(&dst_path)?;
                     if let Some(reflink_info) = reflink_info.as_mut() {
-                        eprintln!("doing reflink copy of {}", path.display());
                         for extent in f.extents.values() {
                             let offset_into_file = unsafe {
                                 extent.data().as_ptr().offset_from(reflink_info.base_ptr)
@@ -91,14 +90,23 @@ impl<'p, 'f> Filesystem<'p, 'f> {
                     std::os::unix::fs::symlink(s.target(), &dst_path)?;
                 }
             }
-            std::fs::set_permissions(&dst_path, entry.metadata().permissions())?;
-            nix::unistd::chown(
-                &dst_path,
-                Some(entry.metadata().uid()),
-                Some(entry.metadata().gid()),
-            )?;
-            for (name, val) in entry.metadata().xattrs() {
-                xattr::set(&dst_path, name, val)?;
+            if matches!(entry, Entry::Symlink(_)) {
+                // symlinks only have ownership, not all the other stuff
+                std::os::unix::fs::lchown(
+                    &dst_path,
+                    Some(entry.metadata().uid().into()),
+                    Some(entry.metadata().gid().into()),
+                )?;
+            } else {
+                std::fs::set_permissions(&dst_path, entry.metadata().permissions())?;
+                nix::unistd::chown(
+                    &dst_path,
+                    Some(entry.metadata().uid()),
+                    Some(entry.metadata().gid()),
+                )?;
+                for (name, val) in entry.metadata().xattrs() {
+                    xattr::set(&dst_path, name, val)?;
+                }
             }
         }
         Ok(())

@@ -10,6 +10,7 @@
 #![feature(map_first_last)]
 #![feature(mixed_integer_ops)]
 #![feature(io_error_other)]
+#![feature(unix_chown)]
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -60,7 +61,7 @@ pub(crate) mod tests {
 
     /// Standard demo filesystem to exercise a variety of formats.
     pub(crate) fn demo_fs() -> Filesystem<'static, 'static> {
-        let mut fs = Filesystem {
+        Filesystem {
             entries: BTreeMap::from([
                 (
                     Path::new("").into(),
@@ -145,7 +146,6 @@ pub(crate) mod tests {
                     .into(),
                 ),
             ]),
-        };
-        fs
+        }
     }
 }
