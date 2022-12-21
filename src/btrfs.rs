@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::os::unix::fs::PermissionsExt;
 
 use sendstream_parser::Command;
 use sendstream_parser::Error;
@@ -48,7 +49,9 @@ impl<'s> Sendstreams<'s> {
                         .entries
                         .get_mut(&subvol_path!(subvol, c.path()))
                         .expect("must exist")
-                        .chmod(c.mode()),
+                        .chmod(nix::sys::stat::Mode::from_bits_truncate(
+                            c.mode().permissions().mode(),
+                        )),
                     Command::Mkdir(m) => {
                         fs.entries.insert(
                             subvol_path!(subvol, m.path().path()),
