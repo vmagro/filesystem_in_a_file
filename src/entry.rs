@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::os::unix::fs::MetadataExt;
@@ -17,14 +16,14 @@ use crate::File;
 
 /// A single directory entry in the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Entry<'p, 'f> {
+pub enum Entry<'f> {
     /// A regular file
     File(File<'f>),
     Directory(Directory<'f>),
-    Symlink(Symlink<'p, 'f>),
+    Symlink(Symlink<'f>),
 }
 
-impl<'p, 'f> Entry<'p, 'f> {
+impl<'f> Entry<'f> {
     pub fn metadata(&self) -> &Metadata {
         match self {
             Self::File(f) => &f.metadata,
@@ -51,14 +50,14 @@ impl<'p, 'f> Entry<'p, 'f> {
 
     pub fn set_xattr(
         &mut self,
-        name: impl Into<Cow<'f, OsStr>>,
-        val: impl Into<Cow<'f, [u8]>>,
-    ) -> Option<Cow<'f, [u8]>> {
-        self.metadata_mut().xattrs.insert(name.into(), val.into())
+        name: &'f OsStr,
+        val: &'f [u8],
+    ) -> Option<&'f [u8]> {
+        self.metadata_mut().xattrs.insert(name, val)
     }
 
-    pub fn remove_xattr(&mut self, name: &'f OsStr) -> Option<Cow<'f, [u8]>> {
-        self.metadata_mut().xattrs.remove(&Cow::Borrowed(name))
+    pub fn remove_xattr(&mut self, name: &'f OsStr) -> Option<&'f [u8]> {
+        self.metadata_mut().xattrs.remove(name)
     }
 }
 
@@ -72,7 +71,7 @@ pub struct Metadata<'f> {
     #[get_copy = "pub"]
     pub(crate) gid: Gid,
     #[get = "pub"]
-    pub(crate) xattrs: BTreeMap<Cow<'f, OsStr>, Cow<'f, [u8]>>,
+    pub(crate) xattrs: BTreeMap<&'f OsStr, &'f [u8]>,
 }
 
 impl<'f> Metadata<'f> {
@@ -138,8 +137,8 @@ impl<'f> MetadataBuilder<'f> {
     /// Add a single xattr
     pub fn xattr(
         &mut self,
-        name: impl Into<Cow<'f, OsStr>>,
-        value: impl Into<Cow<'f, [u8]>>,
+        name: &'f OsStr,
+        value: &'f [u8]
     ) -> &mut Self {
         if self.xattrs.is_none() {
             self.xattrs = Some(BTreeMap::new());
@@ -147,7 +146,7 @@ impl<'f> MetadataBuilder<'f> {
         self.xattrs
             .as_mut()
             .expect("this is Some")
-            .insert(name.into(), value.into());
+            .insert(name, value);
         self
     }
 
@@ -156,20 +155,20 @@ impl<'f> MetadataBuilder<'f> {
     }
 }
 
-impl<'p, 'f> From<File<'f>> for Entry<'p, 'f> {
+impl<'f> From<File<'f>> for Entry<'f> {
     fn from(f: File<'f>) -> Self {
         Self::File(f)
     }
 }
 
-impl<'p, 'f> From<Directory<'f>> for Entry<'p, 'f> {
+impl<'f> From<Directory<'f>> for Entry<'f> {
     fn from(d: Directory<'f>) -> Self {
         Self::Directory(d)
     }
 }
 
-impl<'p, 'f> From<Symlink<'p, 'f>> for Entry<'p, 'f> {
-    fn from(s: Symlink<'p, 'f>) -> Self {
+impl<'f> From<Symlink<'f>> for Entry<'f> {
+    fn from(s: Symlink<'f>) -> Self {
         Self::Symlink(s)
     }
 }
@@ -193,15 +192,15 @@ impl<'f> DirectoryBuilder<'f> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Getters, CopyGetters)]
-pub struct Symlink<'p, 'f> {
+pub struct Symlink<'f> {
     #[get = "pub"]
     /// Target path
-    target: Cow<'p, Path>,
+    target: &'f Path,
     metadata: Metadata<'f>,
 }
 
-impl<'p, 'f> Symlink<'p, 'f> {
-    pub fn new(target: impl Into<Cow<'p, Path>>, metadata: Option<Metadata<'f>>) -> Self {
+impl<'f> Symlink<'f> {
+    pub fn new(target: &'f Path, metadata: Option<Metadata<'f>>) -> Self {
         Self {
             target: target.into(),
             metadata: metadata.unwrap_or_default(),

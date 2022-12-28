@@ -45,7 +45,6 @@ impl<'r, 'f> Read for Reader<'r, 'f> {
 mod tests {
     use std::io::Seek;
     use std::io::SeekFrom;
-    use std::io::Write;
 
     use super::super::tests::test_file;
     use super::*;
@@ -63,10 +62,10 @@ mod tests {
     fn overlapping_writes() {
         let mut f = File::new_empty();
         let mut w = f.writer();
-        w.write_all(b"Lorem lorem").expect("infallible");
+        w.write(b"Lorem lorem");
         w.seek(SeekFrom::Start("Lorem ".len() as u64))
             .expect("infallible");
-        w.write_all(b"ipsum dolor sit amet").expect("infallible");
+        w.write(b"ipsum dolor sit amet");
         let mut buf = Vec::new();
         f.reader().read_to_end(&mut buf).expect("infallible");
         assert_eq!(

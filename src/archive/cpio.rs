@@ -20,8 +20,6 @@ const HEADER_LEN: usize = 110;
 
 pub trait Backing: Sealed {}
 
-impl Backing for std::fs::File {}
-
 pub struct Cpio<B: Backing> {
     contents: Mmap,
     backing: B,

@@ -20,7 +20,7 @@ pub trait ReflinkExtract {
     fn reflink_extract(&self, dir: &Path) -> std::io::Result<()>;
 }
 
-impl<'p, 'f> Filesystem<'p, 'f> {
+impl<'f> Filesystem<'f> {
     /// Extract the in-memory representation of this [Filesystem] to a real
     /// on-disk filesystem.
     pub fn extract_to(&self, dir: &Path) -> std::io::Result<()> {
@@ -56,7 +56,7 @@ impl<'p, 'f> Filesystem<'p, 'f> {
                 Entry::Directory(_) => {
                     // Do not create top-level directory, but still let the
                     // later chown+chmod happen.
-                    if path != Path::new("") {
+                    if *path != Path::new("") {
                         std::fs::create_dir(&dst_path)?;
                     }
                 }
@@ -116,6 +116,7 @@ mod tests {
     use super::*;
     use crate::tests::demo_fs;
 
+    #[cfg(feature = "dir")]
     #[test]
     fn extract_matches_demo() {
         // Ensure that the tmpdir is in the same filesystem as the source repo.

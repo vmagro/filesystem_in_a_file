@@ -12,7 +12,6 @@
 #![feature(io_error_other)]
 #![feature(unix_chown)]
 
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -20,6 +19,7 @@ use std::path::Path;
 pub mod archive;
 #[cfg(feature = "btrfs")]
 pub mod btrfs;
+#[cfg(feature = "dir")]
 mod dir;
 mod entry;
 mod extract;
@@ -30,11 +30,11 @@ use file::File;
 
 /// Full view of a filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Filesystem<'p, 'f> {
-    entries: BTreeMap<Cow<'p, Path>, Entry<'p, 'f>>,
+pub struct Filesystem<'f> {
+    entries: BTreeMap<&'f Path, Entry<'f>>,
 }
 
-impl<'p, 'f> Filesystem<'p, 'f> {
+impl<'f> Filesystem<'f> {
     fn new() -> Self {
         Self {
             entries: BTreeMap::new(),
@@ -60,7 +60,7 @@ pub(crate) mod tests {
     use crate::entry::Symlink;
 
     /// Standard demo filesystem to exercise a variety of formats.
-    pub(crate) fn demo_fs() -> Filesystem<'static, 'static> {
+    pub(crate) fn demo_fs() -> Filesystem<'static> {
         Filesystem {
             entries: BTreeMap::from([
                 (

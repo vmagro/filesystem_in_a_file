@@ -11,14 +11,15 @@ memmap = {version = "0.7", optional = true}
 nix = "0.26"
 sendstream_parser = {version = "0.1", optional = true}
 tar = {version = "0.4", optional = true}
-walkdir = "2"
+walkdir = {version = "2", optional = true}
 xattr = "1"
 
 [features]
 archive = []
 btrfs = ["dep:memmap", "dep:sendstream_parser"]
 cpio = ["archive", "dep:cpio", "dep:memmap"]
-default = ["btrfs", "cpio", "tar"]
+default = ["btrfs", "cpio", "dir", "tar"]
+dir = ["dep:walkdir"]
 tar = ["archive", "dep:memmap", "dep:tar"]
 
 [dev-dependencies]

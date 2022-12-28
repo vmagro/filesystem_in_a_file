@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::ops::Range;
@@ -100,9 +99,7 @@ impl<'a> File<'a> {
             let cloned = Extent::Cloned(Cloned {
                 src_file: self,
                 src_range: (start, end),
-                data: Cow::Borrowed(
-                    &ext.data()[(start - ext_start) as usize..(end - ext_start) as usize],
-                ),
+                data: &ext.data()[(start - ext_start) as usize..(end - ext_start) as usize],
             });
             v.push(cloned);
         }
