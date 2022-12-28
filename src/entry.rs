@@ -94,7 +94,7 @@ impl<'f> Metadata<'f> {
 
     /// Some of our supported archive formats don't support xattrs, so make it
     /// easy to remove them from the demo test data
-    #[cfg(test)]
+    #[cfg(all(test, any(feature = "cpio")))]
     pub(crate) fn clear_xattrs(&mut self) {
         self.xattrs.clear()
     }
