@@ -1,9 +1,6 @@
-use std::borrow::Cow;
 use std::io::Cursor;
 use std::path::Path;
-use std::path::PathBuf;
 
-use memmap::Mmap;
 use nix::sys::stat::Mode;
 use nix::sys::stat::SFlag;
 use nix::unistd::Gid;
@@ -13,40 +10,14 @@ use crate::entry::Directory;
 use crate::entry::Metadata;
 use crate::File;
 use crate::Filesystem;
-use crate::__private::Sealed;
-use crate::extract::ReflinkExtract;
 
 const HEADER_LEN: usize = 110;
 
-pub trait Backing: Sealed {}
-
-pub struct Cpio<B: Backing> {
-    contents: Mmap,
-    backing: B,
-}
-
-impl Cpio<std::fs::File> {
-    /// Load an uncompressed cpio from a [std::fs::File].
-    pub fn from_file(file: std::fs::File) -> std::io::Result<Self> {
-        let contents = unsafe { memmap::MmapOptions::new().map(&file) }?;
-        Ok(Self {
-            contents,
-            backing: file,
-        })
-    }
-}
-
-impl ReflinkExtract for Cpio<std::fs::File> {
-    fn reflink_extract(&self, dir: &Path) -> std::io::Result<()> {
-        let fs = self.filesystem()?;
-        fs.reflink_extract(dir, &self.backing, self.contents.as_ptr())
-    }
-}
-
-impl<B: Backing> Cpio<B> {
-    pub fn filesystem(&self) -> std::io::Result<Filesystem<'_, '_>> {
-        let mut fs = Filesystem::new();
-        let mut cursor = Cursor::new(&self.contents);
+impl<'f> Filesystem<'f> {
+    /// Parse an uncompressed cpio
+    pub fn parse_cpio(contents: &'f [u8]) -> std::io::Result<Self> {
+        let mut fs = Self::new();
+        let mut cursor = Cursor::new(&contents);
         let mut header_start_pos = 0;
         loop {
             let reader = cpio::newc::Reader::new(cursor).expect("failed to create reader");
@@ -54,7 +25,8 @@ impl<B: Backing> Cpio<B> {
             if entry.is_trailer() {
                 break;
             }
-            let path = Cow::Owned(PathBuf::from(entry.name()));
+            // let path = Path::new(entry.name());
+            let path = Path::new("/a");
             let mode = Mode::from_bits_truncate(entry.mode());
             let sflag = SFlag::from_bits_truncate(entry.mode());
             if sflag.contains(SFlag::S_IFDIR) {
@@ -85,7 +57,7 @@ impl<B: Backing> Cpio<B> {
                 // the next multiple of 4, then 4 bytes after that
                 let file_start =
                     ((header_start_pos + HEADER_LEN + entry.name().len() + 3) & !3) + 4;
-                let contents = &self.contents[file_start..file_start + file_size];
+                let contents = &contents[file_start..file_start + file_size];
                 builder.contents(contents);
                 fs.entries.insert(path, builder.build().into());
             } else {
@@ -103,6 +75,7 @@ mod tests {
     use std::path::Path;
 
     use pretty_assertions::assert_eq;
+    use memmap::MmapOptions;
 
     use super::*;
     use crate::tests::demo_fs;
@@ -111,8 +84,8 @@ mod tests {
     fn cpio() {
         let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.cpio"))
             .expect("failed to open testdata.cpio");
-        let testdata_cpio = Cpio::from_file(file).expect("failed to load cpio");
-        let fs = testdata_cpio.filesystem().expect("failed to parse cpio");
+        let contents = unsafe { MmapOptions::new().map(&file).unwrap() };
+        let fs = Filesystem::parse_cpio(&contents).expect("failed to parse cpio");
         let mut demo_fs = demo_fs();
         // cpio is missing the top-level directory
         demo_fs.entries.remove(Path::new(""));
@@ -122,29 +95,5 @@ mod tests {
             .values_mut()
             .for_each(|ent| ent.metadata_mut().clear_xattrs());
         assert_eq!(demo_fs, fs);
-    }
-
-    #[test]
-    fn reflink_extract() {
-        let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.cpio"))
-            .expect("failed to open testdata.cpio");
-        let testdata_cpio = Cpio::from_file(file).expect("failed to load cpio");
-
-        let tmpdir =
-            tempfile::TempDir::new_in(Path::new(env!("OUT_DIR"))).expect("failed to create tmpdir");
-
-        testdata_cpio
-            .reflink_extract(tmpdir.path())
-            .expect("failed to extract");
-
-        let extracted_fs =
-            Filesystem::from_dir(tmpdir.path()).expect("failed to read extracted dir");
-        let mut demo_fs = demo_fs();
-        // cpio does not support xattrs
-        demo_fs
-            .entries
-            .values_mut()
-            .for_each(|ent| ent.metadata_mut().clear_xattrs());
-        assert_eq!(demo_fs, extracted_fs);
     }
 }

@@ -2,8 +2,6 @@
 
 #[cfg(feature = "cpio")]
 mod cpio;
-#[cfg(feature = "cpio")]
-pub use self::cpio::Cpio;
 
 #[cfg(feature = "tar")]
 mod tar;
