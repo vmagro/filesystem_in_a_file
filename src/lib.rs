@@ -6,9 +6,6 @@
 //! etc) and get a complete picture of the entire FS (or at least the parts that
 //! can be represented in the archive format).
 
-// both of these features are now stabilized in 1.66
-#![feature(map_first_last)]
-#![feature(mixed_integer_ops)]
 #![feature(io_error_other)]
 #![feature(unix_chown)]
 
@@ -29,9 +26,9 @@ mod bytes_ext;
 #[cfg(feature = "dir")]
 mod dir;
 mod entry;
-mod extract;
 pub mod file;
 mod iter;
+mod materialize;
 mod path;
 
 pub(crate) use bytes_ext::BytesExt;
@@ -243,7 +240,7 @@ pub(crate) mod tests {
         ])
     }
 
-    #[cfg(test)]
+    #[test]
     fn partial_eq() {
         assert_eq!(demo_fs(), demo_fs());
         let mut other = demo_fs().clone();
