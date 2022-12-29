@@ -1,9 +1,9 @@
-use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
+use bytes::Bytes;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
@@ -15,7 +15,7 @@ use crate::entry::Symlink;
 use crate::File;
 use crate::Filesystem;
 
-impl<'f> Filesystem<'f, 'f> {
+impl Filesystem {
     /// Create an in-memory view of a Filesystem from a directory on a real,
     /// on-disk filesystem.
     pub fn from_dir(path: &Path) -> std::io::Result<Self> {
@@ -33,13 +33,13 @@ impl<'f> Filesystem<'f, 'f> {
                 let val = xattr::get(entry.path(), &name)?.expect("must exist");
                 xattrs.insert(name, val);
             }
-            let xattrs = xattrs
+            let xattrs: BTreeMap<Bytes, Bytes> = xattrs
                 .into_iter()
-                .map(|(k, v)| (k.into(), v.into()))
-                .collect::<BTreeMap<Cow<'f, OsStr>, Cow<'f, [u8]>>>();
+                .map(|(k, v)| (Bytes::copy_from_slice(k.as_bytes()), v.into()))
+                .collect();
             if entry.file_type().is_dir() {
-                fs.entries.insert(
-                    relpath.into(),
+                fs.insert(
+                    relpath,
                     Directory::builder()
                         .metadata(
                             Metadata::builder()
@@ -49,19 +49,15 @@ impl<'f> Filesystem<'f, 'f> {
                                 .xattrs(xattrs)
                                 .build(),
                         )
-                        .build()
-                        .into(),
+                        .build(),
                 );
             } else if entry.file_type().is_symlink() {
                 let target = std::fs::read_link(entry.path())?;
                 let symlink_meta = std::fs::symlink_metadata(entry.path())?;
-                fs.entries.insert(
-                    relpath.into(),
-                    Symlink::new(target, Some(symlink_meta.into())).into(),
-                );
+                fs.insert(relpath, Symlink::new(target, Some(symlink_meta.into())));
             } else if entry.file_type().is_file() {
-                fs.entries.insert(
-                    relpath.into(),
+                fs.insert(
+                    relpath,
                     File::builder()
                         .contents(std::fs::read(entry.path())?)
                         .metadata(
@@ -72,8 +68,7 @@ impl<'f> Filesystem<'f, 'f> {
                                 .xattrs(xattrs)
                                 .build(),
                         )
-                        .build()
-                        .into(),
+                        .build(),
                 );
             }
         }
