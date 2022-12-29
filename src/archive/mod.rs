@@ -5,5 +5,3 @@ mod cpio;
 
 #[cfg(feature = "tar")]
 mod tar;
-#[cfg(feature = "tar")]
-pub use self::tar::Tar;
