@@ -22,7 +22,7 @@ use crate::Filesystem;
 
 impl<'f> Filesystem<'f> {
     /// Load an uncompressed tarball.
-    pub fn parse_tar(contents: &'f Bytes) -> std::io::Result<Self> {
+    pub fn parse_tar(contents: &Bytes) -> std::io::Result<Self> {
         let mut fs = Filesystem::new();
         for entry in Archive::new(Cursor::new(&contents)).entries_with_seek()? {
             let mut entry = entry?;

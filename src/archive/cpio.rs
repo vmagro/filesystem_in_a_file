@@ -1,8 +1,6 @@
-use std::ffi::OsStr;
 use std::io::Cursor;
-use std::os::unix::prelude::OsStrExt;
-use std::path::Path;
 
+use bytes::Bytes;
 use nix::sys::stat::Mode;
 use nix::sys::stat::SFlag;
 use nix::unistd::Gid;
@@ -11,6 +9,7 @@ use nix::unistd::Uid;
 use crate::entry::Directory;
 use crate::entry::Metadata;
 use crate::entry::Symlink;
+use crate::BytesExt;
 use crate::File;
 use crate::Filesystem;
 
@@ -30,7 +29,7 @@ fn align_to_4_bytes(pos: usize) -> usize {
 
 impl<'f> Filesystem<'f> {
     /// Parse an uncompressed cpio
-    pub fn parse_cpio(contents: &'f [u8]) -> std::io::Result<Self> {
+    pub fn parse_cpio(contents: &Bytes) -> std::io::Result<Self> {
         let mut fs = Self::new();
         let mut cursor = Cursor::new(&contents);
 
@@ -41,10 +40,7 @@ impl<'f> Filesystem<'f> {
             if entry.is_trailer() {
                 break;
             }
-            let name_start = header_start_pos + HEADER_LEN;
-            let path = Path::new(OsStr::from_bytes(
-                &contents[name_start..name_start + entry.name().len()],
-            ));
+            let path = contents.subslice_or_copy(entry.name().as_bytes()).into();
             let mode = Mode::from_bits_truncate(entry.mode());
             let sflag = SFlag::from_bits_truncate(entry.mode());
             let metadata = Metadata::builder()
@@ -61,9 +57,7 @@ impl<'f> Filesystem<'f> {
                 // path + NUL, padded to the next multiple of 4
                 let link_start =
                     align_to_4_bytes(header_start_pos + HEADER_LEN + entry.name().len() + 1);
-                let target = Path::new(OsStr::from_bytes(
-                    &contents[link_start..link_start + name_size],
-                ));
+                let target = contents.slice(link_start..link_start + name_size);
                 fs.entries
                     .insert(path, Symlink::new(target, Some(metadata)).into());
             } else if sflag.contains(SFlag::S_IFREG) {
@@ -80,8 +74,8 @@ impl<'f> Filesystem<'f> {
                 // NUL, padded to the next multiple of 4
                 let file_start =
                     align_to_4_bytes(header_start_pos + HEADER_LEN + entry.name().len() + 1);
-                let contents = &contents[file_start..file_start + file_size];
-                builder.contents(contents);
+                let file_contents = contents.slice(file_start..file_start + file_size);
+                builder.contents(file_contents);
                 fs.entries.insert(path, builder.build().into());
             } else {
                 todo!();
@@ -97,12 +91,12 @@ impl<'f> Filesystem<'f> {
 mod tests {
     use std::path::Path;
 
-    use memmap::MmapOptions;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
     use super::*;
     use crate::tests::demo_fs;
+    use crate::BytesPath;
 
     #[rstest]
     #[case(0, 0)]
@@ -118,13 +112,14 @@ mod tests {
 
     #[test]
     fn cpio() {
-        let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.cpio"))
-            .expect("failed to open testdata.cpio");
-        let contents = unsafe { MmapOptions::new().map(&file).unwrap() };
+        let contents = Bytes::from(
+            std::fs::read(Path::new(env!("OUT_DIR")).join("testdata.cpio"))
+                .expect("failed to read testdata.cpio"),
+        );
         let fs = Filesystem::parse_cpio(&contents).expect("failed to parse cpio");
         let mut demo_fs = demo_fs();
         // cpio is missing the top-level directory
-        demo_fs.entries.remove(Path::new(""));
+        demo_fs.entries.remove(&BytesPath::from(""));
         // cpio does not support xattrs
         demo_fs
             .entries
