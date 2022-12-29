@@ -97,7 +97,6 @@ impl PartialEq<Filesystem> for Filesystem {
                 return false;
             }
         }
-        assert!(unvisited.is_empty(), "{:?}", unvisited);
         unvisited.is_empty()
     }
 }

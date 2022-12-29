@@ -4,6 +4,10 @@ use sendstream_parser::Command;
 use sendstream_parser::Sendstream;
 use uuid::Uuid;
 
+use crate::entry::Directory;
+use crate::file::File;
+use crate::Filesystem;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("invariant violated: {0}")]
@@ -17,11 +21,15 @@ pub enum Error {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Subvol {
     parent_uuid: Option<Uuid>,
+    fs: Filesystem,
 }
 
 impl Subvol {
     fn new() -> Self {
-        Subvol { parent_uuid: None }
+        Subvol {
+            parent_uuid: None,
+            fs: Filesystem::new(),
+        }
     }
 }
 
@@ -36,23 +44,33 @@ impl Subvols {
     /// Parse subvolumes from an uncompressed sendstream
     pub fn receive<'f>(&mut self, sendstream: Sendstream<'f>) -> Result<(), Error> {
         let mut cmd_iter = sendstream.commands().iter();
-        let (subvol_uuid, subvol) = match cmd_iter.next().expect("must have at least one command") {
-            Command::Subvol(s) => (s.uuid(), Subvol::new()),
-            Command::Snapshot(s) => {
-                let mut subvol = self
-                    .0
-                    .get(&s.clone_uuid())
-                    .ok_or(Error::MissingParent(s.clone_uuid()))?
-                    .clone();
-                subvol.parent_uuid = Some(s.clone_uuid());
-                (s.uuid(), subvol)
+        let (subvol_uuid, mut subvol) =
+            match cmd_iter.next().expect("must have at least one command") {
+                Command::Subvol(s) => {
+                    let mut subvol = Subvol::new();
+                    subvol.fs.insert("", Directory::default());
+                    (s.uuid(), subvol)
+                }
+                Command::Snapshot(s) => {
+                    let mut subvol = self
+                        .0
+                        .get(&s.clone_uuid())
+                        .ok_or(Error::MissingParent(s.clone_uuid()))?
+                        .clone();
+                    subvol.parent_uuid = Some(s.clone_uuid());
+                    (s.uuid(), subvol)
+                }
+                _ => {
+                    return Err(Error::InvariantViolated(
+                        "first command was not subvol start",
+                    ))
+                }
+            };
+        for cmd in cmd_iter {
+            match cmd {
+                _ => eprintln!("unimplemented command: {:?}", cmd),
             }
-            _ => {
-                return Err(Error::InvariantViolated(
-                    "first command was not subvol start",
-                ))
-            }
-        };
+        }
         self.0.insert(subvol_uuid, subvol);
         Ok(())
     }
@@ -67,6 +85,7 @@ mod tests {
     use uuid::uuid;
 
     use super::*;
+    use crate::tests::demo_fs;
 
     #[test]
     fn sendstream() {
@@ -85,12 +104,16 @@ mod tests {
             BTreeMap::from([
                 (
                     uuid!("0fbf2b5f-ff82-a748-8b41-e35aec190b49"),
-                    Subvol { parent_uuid: None }
+                    Subvol {
+                        parent_uuid: None,
+                        fs: demo_fs(),
+                    }
                 ),
                 (
                     uuid!("ed2c87d3-12e3-c549-a699-635de66d6f35"),
                     Subvol {
                         parent_uuid: Some(uuid!("0fbf2b5f-ff82-a748-8b41-e35aec190b49")),
+                        fs: demo_fs(),
                     }
                 )
             ]),
