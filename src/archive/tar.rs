@@ -20,7 +20,7 @@ use crate::Filesystem;
 // See https://www.gnu.org/software/tar/manual/html_node/Standard.html for some
 // of the offsets used here to get borrows to the underlying slice
 
-impl<'f> Filesystem<'f> {
+impl Filesystem {
     /// Load an uncompressed tarball.
     pub fn parse_tar(contents: &Bytes) -> std::io::Result<Self> {
         let mut fs = Filesystem::new();

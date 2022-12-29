@@ -17,14 +17,14 @@ use crate::File;
 
 /// A single directory entry in the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Entry<'f> {
+pub enum Entry {
     /// A regular file
-    File(File<'f>),
+    File(File),
     Directory(Directory),
     Symlink(Symlink),
 }
 
-impl<'f> Entry<'f> {
+impl Entry {
     pub fn metadata(&self) -> &Metadata {
         match self {
             Self::File(f) => &f.metadata,
@@ -148,19 +148,19 @@ impl MetadataBuilder {
     }
 }
 
-impl<'f> From<File<'f>> for Entry<'f> {
-    fn from(f: File<'f>) -> Self {
+impl From<File> for Entry {
+    fn from(f: File) -> Self {
         Self::File(f)
     }
 }
 
-impl<'f> From<Directory> for Entry<'f> {
+impl From<Directory> for Entry {
     fn from(d: Directory) -> Self {
         Self::Directory(d)
     }
 }
 
-impl<'f> From<Symlink> for Entry<'f> {
+impl From<Symlink> for Entry {
     fn from(s: Symlink) -> Self {
         Self::Symlink(s)
     }

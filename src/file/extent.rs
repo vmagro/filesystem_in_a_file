@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use bytes::Bytes;
 
 use super::File;
@@ -6,15 +8,15 @@ use super::File;
 /// with other Extents in order to implement mutable files on top of immutable
 /// extent chunks.
 #[derive(Clone, PartialEq, Eq)]
-pub enum Extent<'a> {
+pub enum Extent {
     /// The source-of-truth for this data is the file that contains it. It
     /// originated from a write to that File, not a clone from another.
     Owned(Bytes),
     /// This extent came from part of another File.
-    Cloned(Cloned<'a>),
+    Cloned(Cloned),
 }
 
-impl<'a> Extent<'a> {
+impl Extent {
     pub fn len(&self) -> u64 {
         self.data().len() as u64
     }
@@ -37,7 +39,7 @@ impl<'a> Extent<'a> {
         }
     }
 
-    pub(super) fn split_at(&mut self, at: usize) -> Extent<'a> {
+    pub(super) fn split_at(&mut self, at: usize) -> Self {
         match self {
             Self::Owned(ref mut data) => {
                 let right = data.split_off(at);
@@ -47,7 +49,7 @@ impl<'a> Extent<'a> {
                 let right = c.data.split_off(at);
                 c.src_range = (c.src_range.0, std::cmp::min(at as u64, c.src_range.1));
                 Self::Cloned(Cloned {
-                    src_file: c.src_file,
+                    src_file: c.src_file.clone(),
                     src_range: (
                         std::cmp::max(at as u64, c.src_range.0),
                         std::cmp::min(at as u64, c.src_range.1),
@@ -63,13 +65,13 @@ impl<'a> Extent<'a> {
 /// original [File] and the location in that file for debuggability of BTRFS
 /// sendstreams.
 #[derive(Clone, PartialEq, Eq)]
-pub struct Cloned<'f> {
-    pub(super) src_file: &'f File<'f>,
+pub struct Cloned {
+    pub(super) src_file: Rc<File>,
     pub(super) src_range: (u64, u64),
     pub(super) data: Bytes,
 }
 
-impl<'a> std::fmt::Debug for Extent<'a> {
+impl std::fmt::Debug for Extent {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Owned(o) => {
@@ -89,7 +91,7 @@ impl<'a> std::fmt::Debug for Extent<'a> {
     }
 }
 
-impl<'a> std::fmt::Debug for Cloned<'a> {
+impl std::fmt::Debug for Cloned {
     #[deny(unused_variables)]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let Self {
@@ -112,7 +114,7 @@ impl<'a> std::fmt::Debug for Cloned<'a> {
     }
 }
 
-impl<'a, T> From<T> for Extent<'a>
+impl<T> From<T> for Extent
 where
     T: Into<Bytes>,
 {

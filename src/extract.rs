@@ -22,7 +22,7 @@ pub trait ReflinkExtract {
     fn reflink_extract(&self, dir: &Path) -> std::io::Result<()>;
 }
 
-impl<'f> Filesystem<'f> {
+impl Filesystem {
     /// Extract the in-memory representation of this [Filesystem] to a real
     /// on-disk filesystem.
     pub fn extract_to(&self, dir: &Path) -> std::io::Result<()> {

@@ -27,7 +27,7 @@ fn align_to_4_bytes(pos: usize) -> usize {
     }
 }
 
-impl<'f> Filesystem<'f> {
+impl Filesystem {
     /// Parse an uncompressed cpio
     pub fn parse_cpio(contents: &Bytes) -> std::io::Result<Self> {
         let mut fs = Self::new();

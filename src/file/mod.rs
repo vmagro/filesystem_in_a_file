@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::ops::Range;
+use std::rc::Rc;
 
 use derive_builder::Builder;
 
@@ -21,24 +22,24 @@ use crate::entry::Metadata;
 /// sequence of mutation operations instead of raw file contents).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Builder)]
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
-pub struct File<'a> {
-    pub(crate) extents: BTreeMap<u64, Extent<'a>>,
+pub struct File {
+    pub(crate) extents: BTreeMap<u64, Extent>,
     pub(crate) metadata: Metadata,
 }
 
-impl<'a> FileBuilder<'a> {
+impl FileBuilder {
     /// Set the contents of the [File] to a single [Extent] blob.
-    pub fn contents(&mut self, contents: impl Into<Extent<'a>>) -> &mut Self {
+    pub fn contents(&mut self, contents: impl Into<Extent>) -> &mut Self {
         self.extents(BTreeMap::from([(0, contents.into())]))
     }
 
-    pub fn build(&mut self) -> File<'a> {
+    pub fn build(&mut self) -> File {
         self.fallible_build().expect("infallible")
     }
 }
 
-impl<'a> File<'a> {
-    pub fn builder() -> FileBuilder<'a> {
+impl File {
+    pub fn builder() -> FileBuilder {
         FileBuilder::default()
     }
 
@@ -66,7 +67,7 @@ impl<'a> File<'a> {
     }
 
     /// Find the extent that contains the byte at 'pos'
-    pub(self) fn extent_for_byte(&self, pos: u64) -> Option<(u64, &Extent<'a>)> {
+    pub(self) fn extent_for_byte(&self, pos: u64) -> Option<(u64, &Extent)> {
         self.extents
             .range(..pos + 1)
             .next_back()
@@ -75,7 +76,7 @@ impl<'a> File<'a> {
     }
 
     /// See [File::extent_for_byte]
-    pub(self) fn extent_for_byte_mut(&mut self, pos: u64) -> Option<(u64, &mut Extent<'a>)> {
+    pub(self) fn extent_for_byte_mut(&mut self, pos: u64) -> Option<(u64, &mut Extent)> {
         self.extents
             .range_mut(..pos + 1)
             .next_back()
@@ -83,10 +84,10 @@ impl<'a> File<'a> {
             .filter(|(start, e)| pos <= start + e.len())
     }
 
-    pub fn clone(&'a self, range: Range<u64>) -> Vec<Extent<'a>> {
+    pub fn clone_range(this: Rc<Self>, range: Range<u64>) -> Vec<Extent> {
         let mut v = Vec::new();
-        let (start, _) = self.extent_for_byte(range.start).expect("invalid range");
-        for (ext_start, ext) in self.extents.range(start..).take_while(|(start, ext)| {
+        let (start, _) = this.extent_for_byte(range.start).expect("invalid range");
+        for (ext_start, ext) in this.extents.range(start..).take_while(|(start, ext)| {
             [
                 std::cmp::max(**start, range.start),
                 std::cmp::min(**start + (ext.len()), range.end),
@@ -97,7 +98,7 @@ impl<'a> File<'a> {
             let start = std::cmp::max(range.start, *ext_start);
             let end = std::cmp::min(range.end, ext_start + ext.len());
             let cloned = Extent::Cloned(Cloned {
-                src_file: self,
+                src_file: this.clone(),
                 src_range: (start, end),
                 data: ext
                     .bytes()
@@ -117,7 +118,7 @@ pub(self) mod tests {
 
     use super::*;
 
-    pub(crate) fn test_file() -> File<'static> {
+    pub(crate) fn test_file() -> File {
         File {
             extents: BTreeMap::from([
                 (0, "Lorem ipsum".into()),
@@ -140,9 +141,11 @@ pub(self) mod tests {
 
     #[test]
     fn cloning() {
-        let f = test_file();
-        let extents =
-            f.clone("Lorem ".len() as u64.."Lorem ".len() as u64 + "ipsum dolor".len() as u64);
+        let f = Rc::new(test_file());
+        let extents = File::clone_range(
+            f.clone(),
+            "Lorem ".len() as u64.."Lorem ".len() as u64 + "ipsum dolor".len() as u64,
+        );
         let mut f2 = File::new_empty();
         let mut w = f2.writer();
         assert_eq!(extents.len(), 2, "{extents:?}");

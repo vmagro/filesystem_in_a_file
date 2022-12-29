@@ -33,11 +33,11 @@ pub use path::BytesPath;
 
 /// Full view of a filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Filesystem<'f> {
-    entries: BTreeMap<BytesPath, Entry<'f>>,
+pub struct Filesystem {
+    entries: BTreeMap<BytesPath, Entry>,
 }
 
-impl<'f> Filesystem<'f> {
+impl Filesystem {
     fn new() -> Self {
         Self {
             entries: BTreeMap::new(),
@@ -61,7 +61,7 @@ pub(crate) mod tests {
     use crate::entry::Symlink;
 
     /// Standard demo filesystem to exercise a variety of formats.
-    pub(crate) fn demo_fs() -> Filesystem<'static> {
+    pub(crate) fn demo_fs() -> Filesystem {
         Filesystem {
             entries: BTreeMap::from([
                 (

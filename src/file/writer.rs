@@ -8,15 +8,15 @@ use super::Extent;
 use super::File;
 
 /// [Write] implementation for [File]s
-pub struct Writer<'r, 'f> {
-    file: &'r mut File<'f>,
+pub struct Writer<'r> {
+    file: &'r mut File,
     pos: u64,
 }
 
-impl<'f> File<'f> {
+impl File {
     /// Open a [Writer] at the end of the file. Use [Seek] to move around if you
     /// want to write somewhere in the middle
-    pub fn writer<'r>(&'r mut self) -> Writer<'r, 'f> {
+    pub fn writer<'r>(&'r mut self) -> Writer<'r> {
         Writer {
             pos: self.len(),
             file: self,
@@ -24,12 +24,12 @@ impl<'f> File<'f> {
     }
 }
 
-impl<'r, 'f> Writer<'r, 'f> {
+impl<'r> Writer<'r> {
     /// Write some bytes into the [File] without making a copy of the underlying
     /// data like the [std::io::Write] implementation is forced to do.
     pub fn write<E>(&mut self, extent: E)
     where
-        E: Into<Extent<'f>>,
+        E: Into<Extent>,
     {
         let extent = extent.into();
         let ext_len = extent.len();
@@ -56,7 +56,7 @@ impl<'r, 'f> Writer<'r, 'f> {
     }
 }
 
-impl<'r, 'f> Seek for Writer<'r, 'f> {
+impl<'r> Seek for Writer<'r> {
     fn seek(&mut self, seek: SeekFrom) -> Result<u64> {
         let (base_pos, offset) = match seek {
             SeekFrom::Start(n) => {

@@ -3,18 +3,18 @@ use std::io::Read;
 use super::File;
 
 /// [Read] implementation for [File]
-pub struct Reader<'r, 'f> {
-    file: &'r File<'f>,
+pub struct Reader<'r> {
+    file: &'r File,
     pos: u64,
 }
 
-impl<'f> File<'f> {
-    pub fn reader<'r>(&'r self) -> Reader<'r, 'f> {
+impl File {
+    pub fn reader<'r>(&'r self) -> Reader<'r> {
         Reader { file: self, pos: 0 }
     }
 }
 
-impl<'r, 'f> Read for Reader<'r, 'f> {
+impl<'r> Read for Reader<'r> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         if self.pos >= self.file.len() {
             return Ok(0);
