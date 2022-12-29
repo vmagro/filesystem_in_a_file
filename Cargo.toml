@@ -13,12 +13,14 @@ nix = "0.26"
 sendstream_parser = {version = "0.1", optional = true}
 slotmap = "1.0"
 tar = {version = "0.4", optional = true}
+thiserror = {version = "1", optional = true}
+uuid = {version = "1.2", optional = true}
 walkdir = {version = "2", optional = true}
 xattr = "1"
 
 [features]
 archive = []
-btrfs = ["dep:memmap", "dep:sendstream_parser"]
+btrfs = ["dep:memmap", "dep:sendstream_parser", "dep:thiserror", "dep:uuid"]
 cpio = ["archive", "dep:cpio", "dep:memmap"]
 default = ["btrfs", "cpio", "dir", "tar"]
 dir = ["dep:walkdir"]
