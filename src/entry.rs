@@ -88,13 +88,6 @@ impl Metadata {
     pub fn chmod(&mut self, mode: Mode) {
         self.mode = mode;
     }
-
-    /// Some of our supported archive formats don't support xattrs, so make it
-    /// easy to remove them from the demo test data
-    #[cfg(all(test, any(feature = "cpio")))]
-    pub(crate) fn clear_xattrs(&mut self) {
-        self.xattrs.clear()
-    }
 }
 
 impl Default for Metadata {

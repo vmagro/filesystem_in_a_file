@@ -34,19 +34,17 @@ impl Filesystem {
                     // remove trailing / for consistency
                     let new_len = path.len() - 1;
                     path.bytes_mut().truncate(new_len);
-                    fs.entries
-                        .insert(path, Directory::builder().metadata(metadata).build().into());
+                    fs.insert(path, Directory::builder().metadata(metadata).build());
                 }
                 EntryType::Regular => {
-                    fs.entries.insert(
+                    fs.insert(
                         path,
                         File::builder()
                             .contents(
                                 contents.slice(file_offset..file_offset + entry.size() as usize),
                             )
                             .metadata(metadata)
-                            .build()
-                            .into(),
+                            .build(),
                     );
                 }
                 EntryType::Symlink => {
@@ -55,8 +53,7 @@ impl Filesystem {
                             .link_name_bytes()
                             .expect("symlink must have link target"),
                     );
-                    fs.entries
-                        .insert(path, Symlink::new(link_target, Some(metadata)).into());
+                    fs.insert(path, Symlink::new(link_target, Some(metadata)));
                 }
                 ty => {
                     todo!("unhandled entry type {ty:?}");
@@ -111,7 +108,7 @@ mod tests {
         let fs = Filesystem::parse_tar(&contents).expect("failed to parse tar");
         let mut demo_fs = demo_fs();
         // tar is missing the top-level directory
-        demo_fs.entries.remove(&BytesPath::from(""));
+        demo_fs.unlink(&BytesPath::from(""));
         assert_eq!(demo_fs, fs);
     }
 }

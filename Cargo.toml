@@ -11,6 +11,7 @@ getset = "0.1"
 memmap = {version = "0.7", optional = true}
 nix = "0.26"
 sendstream_parser = {version = "0.1", optional = true}
+slotmap = "1.0"
 tar = {version = "0.4", optional = true}
 walkdir = {version = "2", optional = true}
 xattr = "1"

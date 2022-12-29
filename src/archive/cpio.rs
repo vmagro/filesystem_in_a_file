@@ -40,7 +40,7 @@ impl Filesystem {
             if entry.is_trailer() {
                 break;
             }
-            let path = contents.subslice_or_copy(entry.name().as_bytes()).into();
+            let path = contents.subslice_or_copy(entry.name().as_bytes());
             let mode = Mode::from_bits_truncate(entry.mode());
             let sflag = SFlag::from_bits_truncate(entry.mode());
             let metadata = Metadata::builder()
@@ -49,8 +49,7 @@ impl Filesystem {
                 .gid(Gid::from_raw(entry.gid()))
                 .build();
             if sflag.contains(SFlag::S_IFDIR) {
-                fs.entries
-                    .insert(path, Directory::builder().metadata(metadata).build().into());
+                fs.insert(path, Directory::builder().metadata(metadata).build());
             } else if sflag.contains(SFlag::S_IFLNK) {
                 let name_size = entry.file_size() as usize;
                 // the symlink target starts at the header_start + HEADER_LEN +
@@ -58,8 +57,7 @@ impl Filesystem {
                 let link_start =
                     align_to_4_bytes(header_start_pos + HEADER_LEN + entry.name().len() + 1);
                 let target = contents.slice(link_start..link_start + name_size);
-                fs.entries
-                    .insert(path, Symlink::new(target, Some(metadata)).into());
+                fs.insert(path, Symlink::new(target, Some(metadata)));
             } else if sflag.contains(SFlag::S_IFREG) {
                 let mut builder = File::builder();
                 builder.metadata(
@@ -76,7 +74,7 @@ impl Filesystem {
                     align_to_4_bytes(header_start_pos + HEADER_LEN + entry.name().len() + 1);
                 let file_contents = contents.slice(file_start..file_start + file_size);
                 builder.contents(file_contents);
-                fs.entries.insert(path, builder.build().into());
+                fs.insert(path, builder.build());
             } else {
                 todo!();
             }
@@ -97,6 +95,14 @@ mod tests {
     use super::*;
     use crate::tests::demo_fs;
     use crate::BytesPath;
+
+    impl Filesystem {
+        pub(crate) fn clear_unsupported(&mut self) {
+            self.inodes
+                .values_mut()
+                .for_each(|e| e.metadata_mut().xattrs.clear())
+        }
+    }
 
     #[rstest]
     #[case(0, 0)]
@@ -119,12 +125,9 @@ mod tests {
         let fs = Filesystem::parse_cpio(&contents).expect("failed to parse cpio");
         let mut demo_fs = demo_fs();
         // cpio is missing the top-level directory
-        demo_fs.entries.remove(&BytesPath::from(""));
+        demo_fs.unlink(&BytesPath::from(""));
         // cpio does not support xattrs
-        demo_fs
-            .entries
-            .values_mut()
-            .for_each(|ent| ent.metadata_mut().clear_xattrs());
+        demo_fs.clear_unsupported();
         assert_eq!(demo_fs, fs);
     }
 }

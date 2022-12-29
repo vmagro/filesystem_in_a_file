@@ -52,13 +52,13 @@ impl Filesystem {
         dir: &Path,
         mut reflink_info: Option<ReflinkInfo<'_>>,
     ) -> std::io::Result<()> {
-        for (path, entry) in &self.entries {
+        for (path, entry) in self {
             let dst_path = dir.join(path);
             match entry {
                 Entry::Directory(_) => {
                     // Do not create top-level directory, but still let the
                     // later chown+chmod happen.
-                    if *path != Path::new("") {
+                    if path != Path::new("") {
                         std::fs::create_dir(&dst_path)?;
                     }
                 }
