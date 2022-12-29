@@ -62,10 +62,10 @@ mod tests {
     fn overlapping_writes() {
         let mut f = File::new_empty();
         let mut w = f.writer();
-        w.write(b"Lorem lorem");
+        w.write("Lorem lorem");
         w.seek(SeekFrom::Start("Lorem ".len() as u64))
             .expect("infallible");
-        w.write(b"ipsum dolor sit amet");
+        w.write("ipsum dolor sit amet");
         let mut buf = Vec::new();
         f.reader().read_to_end(&mut buf).expect("infallible");
         assert_eq!(

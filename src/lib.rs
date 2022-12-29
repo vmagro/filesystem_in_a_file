@@ -13,25 +13,28 @@
 #![feature(unix_chown)]
 
 use std::collections::BTreeMap;
-use std::path::Path;
 
 #[cfg(feature = "archive")]
 pub mod archive;
 #[cfg(feature = "btrfs")]
 pub mod btrfs;
+mod bytes_ext;
 #[cfg(feature = "dir")]
 mod dir;
 mod entry;
 mod extract;
 pub mod file;
+mod path;
 
+pub(crate) use bytes_ext::BytesExt;
 pub use entry::Entry;
 use file::File;
+pub use path::BytesPath;
 
 /// Full view of a filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Filesystem<'f> {
-    entries: BTreeMap<&'f Path, Entry<'f>>,
+    entries: BTreeMap<BytesPath, Entry<'f>>,
 }
 
 impl<'f> Filesystem<'f> {
@@ -48,8 +51,6 @@ mod __private {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::ffi::OsStr;
-
     use nix::sys::stat::Mode;
     use nix::unistd::Gid;
     use nix::unistd::Uid;
@@ -64,7 +65,7 @@ pub(crate) mod tests {
         Filesystem {
             entries: BTreeMap::from([
                 (
-                    Path::new("").into(),
+                    "".into(),
                     Directory::builder()
                         .metadata(
                             Metadata::builder()
@@ -77,7 +78,7 @@ pub(crate) mod tests {
                         .into(),
                 ),
                 (
-                    Path::new("testdata").into(),
+                    "testdata".into(),
                     Directory::builder()
                         .metadata(
                             Metadata::builder()
@@ -90,22 +91,22 @@ pub(crate) mod tests {
                         .into(),
                 ),
                 (
-                    Path::new("testdata/lorem.txt").into(),
+                    "testdata/lorem.txt".into(),
                     File::builder()
-                        .contents(b"Lorem ipsum\n")
+                        .contents("Lorem ipsum\n")
                         .metadata(
                             Metadata::builder()
                                 .mode(Mode::from_bits_truncate(0o644))
                                 .uid(Uid::current())
                                 .gid(Gid::current())
-                                .xattr(OsStr::new("user.demo"), &b"lorem ipsum"[..])
+                                .xattr("user.demo", "lorem ipsum")
                                 .build(),
                         )
                         .build()
                         .into(),
                 ),
                 (
-                    Path::new("testdata/dir").into(),
+                    "testdata/dir".into(),
                     Directory::builder()
                         .metadata(
                             Metadata::builder()
@@ -118,9 +119,9 @@ pub(crate) mod tests {
                         .into(),
                 ),
                 (
-                    Path::new("testdata/dir/lorem.txt").into(),
+                    "testdata/dir/lorem.txt".into(),
                     File::builder()
-                        .contents(b"Lorem ipsum dolor sit amet\n")
+                        .contents("Lorem ipsum dolor sit amet\n")
                         .metadata(
                             Metadata::builder()
                                 .mode(Mode::from_bits_truncate(0o644))
@@ -132,9 +133,9 @@ pub(crate) mod tests {
                         .into(),
                 ),
                 (
-                    Path::new("testdata/dir/symlink").into(),
+                    "testdata/dir/symlink".into(),
                     Symlink::new(
-                        Path::new("../lorem.txt"),
+                        "../lorem.txt",
                         Some(
                             Metadata::builder()
                                 .mode(Mode::from_bits_truncate(0o777))

@@ -1,6 +1,8 @@
+use std::ffi::OsStr;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
 
@@ -103,6 +105,7 @@ impl<'f> Filesystem<'f> {
                     Some(entry.metadata().gid()),
                 )?;
                 for (name, val) in entry.metadata().xattrs() {
+                    let name = OsStr::from_bytes(&name);
                     xattr::set(&dst_path, name, val)?;
                 }
             }

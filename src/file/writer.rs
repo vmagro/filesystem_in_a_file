@@ -89,8 +89,8 @@ mod tests {
     fn appending_writes() {
         let mut f = File::new_empty();
         let mut w = f.writer();
-        w.write(b"Lorem ipsum");
-        w.write(b" dolor sit amet");
+        w.write("Lorem ipsum");
+        w.write(" dolor sit amet");
         assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet");
         assert_eq!(f.extents.len(), 2);
     }
@@ -99,10 +99,10 @@ mod tests {
     fn overwrite() {
         let mut f = File::new_empty();
         let mut w = f.writer();
-        w.write(b"Lorem lorem");
+        w.write("Lorem lorem");
         w.seek(SeekFrom::Start("Lorem ".len() as u64))
             .expect("infallible");
-        w.write(b"ipsum dolor sit amet");
+        w.write("ipsum dolor sit amet");
         assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet");
         assert_eq!(f.extents.len(), 2);
         assert_eq!(
@@ -118,10 +118,10 @@ mod tests {
     fn internal_overwrite() {
         let mut f = File::new_empty();
         let mut w = f.writer();
-        w.write(b"Lorem lorem dolor sit amet");
+        w.write("Lorem lorem dolor sit amet");
         w.seek(SeekFrom::Start("Lorem ".len() as u64))
             .expect("infallible");
-        w.write(b"ipsum");
+        w.write("ipsum");
         assert_eq!(
             std::str::from_utf8(&f.to_bytes()).expect("valid"),
             "Lorem ipsum dolor sit amet",

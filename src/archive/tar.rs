@@ -1,10 +1,8 @@
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
 use std::io::Cursor;
 use std::io::Read;
-use std::os::unix::ffi::OsStrExt;
-use std::path::Path;
 
+use bytes::Bytes;
 use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
@@ -14,6 +12,8 @@ use tar::EntryType;
 use crate::entry::Directory;
 use crate::entry::Metadata;
 use crate::entry::Symlink;
+use crate::BytesExt;
+use crate::BytesPath;
 use crate::File;
 use crate::Filesystem;
 
@@ -22,51 +22,41 @@ use crate::Filesystem;
 
 impl<'f> Filesystem<'f> {
     /// Load an uncompressed tarball.
-    pub fn parse_tar(contents: &'f [u8]) -> std::io::Result<Self> {
+    pub fn parse_tar(contents: &'f Bytes) -> std::io::Result<Self> {
         let mut fs = Filesystem::new();
         for entry in Archive::new(Cursor::new(&contents)).entries_with_seek()? {
-            let entry = entry?;
+            let mut entry = entry?;
             let file_offset = entry.raw_file_position() as usize;
-            let path = Path::new(OsStr::from_bytes(
-                &contents[entry.raw_header_position() as usize
-                    ..entry.raw_header_position() as usize + entry.path_bytes().len()],
-            ));
+            let mut path: BytesPath = contents.subslice_or_copy(&entry.path_bytes()).into();
+            let metadata = Metadata::try_from_entry(contents, &mut entry)?;
             match entry.header().entry_type() {
                 EntryType::Directory => {
-                    let path = path.as_os_str().as_bytes();
-                    let path = &path[..path.len() - 1];
-                    fs.entries.insert(
-                        Path::new(OsStr::from_bytes(path)),
-                        Directory::builder()
-                            .metadata(Metadata::try_from_entry(entry)?)
-                            .build()
-                            .into(),
-                    );
+                    // remove trailing / for consistency
+                    let new_len = path.len() - 1;
+                    path.bytes_mut().truncate(new_len);
+                    fs.entries
+                        .insert(path, Directory::builder().metadata(metadata).build().into());
                 }
                 EntryType::Regular => {
                     fs.entries.insert(
                         path,
                         File::builder()
-                            .contents(&contents[file_offset..file_offset + entry.size() as usize])
-                            .metadata(Metadata::try_from_entry(entry)?)
+                            .contents(
+                                contents.slice(file_offset..file_offset + entry.size() as usize),
+                            )
+                            .metadata(metadata)
                             .build()
                             .into(),
                     );
                 }
                 EntryType::Symlink => {
-                    let link_target = Path::new(OsStr::from_bytes(
-                        &contents[entry.raw_header_position() as usize + 157
-                            ..entry.raw_header_position() as usize
-                                + 157
-                                + entry
-                                    .link_name_bytes()
-                                    .expect("symlink must have link name")
-                                    .len()],
-                    ));
-                    fs.entries.insert(
-                        path.into(),
-                        Symlink::new(link_target, Some(Metadata::try_from_entry(entry)?)).into(),
+                    let link_target = contents.subslice_or_copy(
+                        &entry
+                            .link_name_bytes()
+                            .expect("symlink must have link target"),
                     );
+                    fs.entries
+                        .insert(path, Symlink::new(link_target, Some(metadata)).into());
                 }
                 ty => {
                     todo!("unhandled entry type {ty:?}");
@@ -77,17 +67,20 @@ impl<'f> Filesystem<'f> {
     }
 }
 
-impl<'f> Metadata<'f> {
-    fn try_from_entry<R: Read>(mut entry: tar::Entry<R>) -> std::io::Result<Self> {
+impl Metadata {
+    fn try_from_entry<R: Read>(
+        contents: &Bytes,
+        entry: &mut tar::Entry<R>,
+    ) -> std::io::Result<Self> {
         let mut xattrs = BTreeMap::new();
         if let Ok(Some(pax_extensions)) = entry.pax_extensions() {
             for ext in pax_extensions.into_iter().filter_map(Result::ok) {
-                // if ext.key_bytes().starts_with(b"SCHILY.xattr.") {
-                //     xattrs.insert(
-                //         OsString::from_vec(ext.key_bytes()["SCHILY.xattr.".len()..].to_vec()),
-                //         ext.value_bytes().to_vec(),
-                //     );
-                // }
+                if ext.key_bytes().starts_with(b"SCHILY.xattr.") {
+                    xattrs.insert(
+                        contents.subslice_or_copy(&ext.key_bytes()["SCHILY.xattr.".len()..]),
+                        contents.subslice_or_copy(ext.value_bytes()),
+                    );
+                }
             }
         }
         Ok(Metadata::builder()
@@ -103,21 +96,22 @@ impl<'f> Metadata<'f> {
 mod tests {
     use std::path::Path;
 
-    use memmap::MmapOptions;
     use pretty_assertions::assert_eq;
 
     use super::*;
     use crate::tests::demo_fs;
+    use crate::BytesPath;
 
     #[test]
     fn tar() {
-        let file = std::fs::File::open(Path::new(env!("OUT_DIR")).join("testdata.tar"))
-            .expect("failed to open testdata.tar");
-        let contents = unsafe { MmapOptions::new().map(&file).unwrap() };
+        let contents = Bytes::from(
+            std::fs::read(Path::new(env!("OUT_DIR")).join("testdata.tar"))
+                .expect("failed to read testdata.tar"),
+        );
         let fs = Filesystem::parse_tar(&contents).expect("failed to parse tar");
         let mut demo_fs = demo_fs();
         // tar is missing the top-level directory
-        demo_fs.entries.remove(Path::new(""));
+        demo_fs.entries.remove(&BytesPath::from(""));
         assert_eq!(demo_fs, fs);
     }
 }

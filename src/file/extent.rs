@@ -1,3 +1,5 @@
+use bytes::Bytes;
+
 use super::File;
 
 /// A single piece of data that makes up a file. Immutable but can be composed
@@ -7,7 +9,7 @@ use super::File;
 pub enum Extent<'a> {
     /// The source-of-truth for this data is the file that contains it. It
     /// originated from a write to that File, not a clone from another.
-    Owned(&'a [u8]),
+    Owned(Bytes),
     /// This extent came from part of another File.
     Cloned(Cloned<'a>),
 }
@@ -23,30 +25,32 @@ impl<'a> Extent<'a> {
 
     pub fn data(&self) -> &[u8] {
         match self {
-            Self::Owned(c) => c,
+            Self::Owned(c) => &c,
             Self::Cloned(c) => &c.data,
         }
     }
 
-    pub(super) fn split_at(&mut self, pos: usize) -> Extent<'a> {
+    pub fn bytes(&self) -> Bytes {
+        match self {
+            Self::Owned(c) => c.clone(),
+            Self::Cloned(c) => c.data.clone(),
+        }
+    }
+
+    pub(super) fn split_at(&mut self, at: usize) -> Extent<'a> {
         match self {
             Self::Owned(ref mut data) => {
-                let right = &data[pos..];
-                *data = &data[..pos];
+                let right = data.split_off(at);
                 Self::Owned(right)
             }
             Self::Cloned(ref mut c) => {
-                let right = &c.data[pos..];
-                c.data = &c.data[..pos];
-                c.src_range = (
-                    c.src_range.0,
-                    std::cmp::min(pos as u64, c.src_range.1),
-                );
+                let right = c.data.split_off(at);
+                c.src_range = (c.src_range.0, std::cmp::min(at as u64, c.src_range.1));
                 Self::Cloned(Cloned {
                     src_file: c.src_file,
                     src_range: (
-                        std::cmp::max(pos as u64, c.src_range.0),
-                        std::cmp::min(pos as u64, c.src_range.1),
+                        std::cmp::max(at as u64, c.src_range.0),
+                        std::cmp::min(at as u64, c.src_range.1),
                     ),
                     data: right,
                 })
@@ -62,7 +66,7 @@ impl<'a> Extent<'a> {
 pub struct Cloned<'f> {
     pub(super) src_file: &'f File<'f>,
     pub(super) src_range: (u64, u64),
-    pub(super) data: &'f [u8],
+    pub(super) data: Bytes,
 }
 
 impl<'a> std::fmt::Debug for Extent<'a> {
@@ -108,21 +112,12 @@ impl<'a> std::fmt::Debug for Cloned<'a> {
     }
 }
 
-impl<'a> From<&'a [u8]> for Extent<'a> {
-    fn from(data: &'a [u8]) -> Self {
-        Self::Owned(data)
-    }
-}
-
-impl<'a> From<&'a str> for Extent<'a> {
-    fn from(s: &'a str) -> Self {
-        Self::Owned(s.as_bytes())
-    }
-}
-
-impl<'a, const N: usize> From<&'a [u8; N]> for Extent<'a> {
-    fn from(data: &'a [u8; N]) -> Self {
-        Extent::from(&data[..])
+impl<'a, T> From<T> for Extent<'a>
+where
+    T: Into<Bytes>,
+{
+    fn from(t: T) -> Self {
+        Self::Owned(t.into())
     }
 }
 

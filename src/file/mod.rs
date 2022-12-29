@@ -23,7 +23,7 @@ use crate::entry::Metadata;
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
 pub struct File<'a> {
     pub(crate) extents: BTreeMap<u64, Extent<'a>>,
-    pub(crate) metadata: Metadata<'a>,
+    pub(crate) metadata: Metadata,
 }
 
 impl<'a> FileBuilder<'a> {
@@ -99,7 +99,9 @@ impl<'a> File<'a> {
             let cloned = Extent::Cloned(Cloned {
                 src_file: self,
                 src_range: (start, end),
-                data: &ext.data()[(start - ext_start) as usize..(end - ext_start) as usize],
+                data: ext
+                    .bytes()
+                    .slice((start - ext_start) as usize..(end - ext_start) as usize),
             });
             v.push(cloned);
         }

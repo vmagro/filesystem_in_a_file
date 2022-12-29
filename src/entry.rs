@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+use bytes::Bytes;
 use derive_builder::Builder;
 use getset::CopyGetters;
 use getset::Getters;
@@ -12,6 +12,7 @@ use nix::sys::stat::Mode;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
 
+use crate::BytesPath;
 use crate::File;
 
 /// A single directory entry in the filesystem.
@@ -19,8 +20,8 @@ use crate::File;
 pub enum Entry<'f> {
     /// A regular file
     File(File<'f>),
-    Directory(Directory<'f>),
-    Symlink(Symlink<'f>),
+    Directory(Directory),
+    Symlink(Symlink),
 }
 
 impl<'f> Entry<'f> {
@@ -32,7 +33,7 @@ impl<'f> Entry<'f> {
         }
     }
 
-    pub fn metadata_mut(&mut self) -> &mut Metadata<'f> {
+    pub fn metadata_mut(&mut self) -> &mut Metadata {
         match self {
             Self::File(f) => &mut f.metadata,
             Self::Directory(d) => &mut d.metadata,
@@ -48,22 +49,18 @@ impl<'f> Entry<'f> {
         self.metadata_mut().chmod(mode)
     }
 
-    pub fn set_xattr(
-        &mut self,
-        name: &'f OsStr,
-        val: &'f [u8],
-    ) -> Option<&'f [u8]> {
-        self.metadata_mut().xattrs.insert(name, val)
+    pub fn set_xattr(&mut self, name: impl Into<Bytes>, val: impl Into<Bytes>) -> Option<Bytes> {
+        self.metadata_mut().xattrs.insert(name.into(), val.into())
     }
 
-    pub fn remove_xattr(&mut self, name: &'f OsStr) -> Option<&'f [u8]> {
+    pub fn remove_xattr(&mut self, name: &Bytes) -> Option<Bytes> {
         self.metadata_mut().xattrs.remove(name)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Getters, CopyGetters, Builder)]
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
-pub struct Metadata<'f> {
+pub struct Metadata {
     #[get_copy = "pub"]
     pub(crate) mode: Mode,
     #[get_copy = "pub"]
@@ -71,11 +68,11 @@ pub struct Metadata<'f> {
     #[get_copy = "pub"]
     pub(crate) gid: Gid,
     #[get = "pub"]
-    pub(crate) xattrs: BTreeMap<&'f OsStr, &'f [u8]>,
+    pub(crate) xattrs: BTreeMap<Bytes, Bytes>,
 }
 
-impl<'f> Metadata<'f> {
-    pub fn builder() -> MetadataBuilder<'f> {
+impl Metadata {
+    pub fn builder() -> MetadataBuilder {
         MetadataBuilder::default()
     }
 
@@ -100,7 +97,7 @@ impl<'f> Metadata<'f> {
     }
 }
 
-impl<'f> Default for Metadata<'f> {
+impl Default for Metadata {
     fn default() -> Self {
         Self {
             mode: Mode::from_bits_truncate(0o444),
@@ -111,7 +108,7 @@ impl<'f> Default for Metadata<'f> {
     }
 }
 
-impl<'f> From<FileStat> for Metadata<'f> {
+impl From<FileStat> for Metadata {
     fn from(fs: FileStat) -> Self {
         Self {
             mode: Mode::from_bits_truncate(fs.st_mode),
@@ -122,7 +119,7 @@ impl<'f> From<FileStat> for Metadata<'f> {
     }
 }
 
-impl<'f> From<std::fs::Metadata> for Metadata<'f> {
+impl From<std::fs::Metadata> for Metadata {
     fn from(fs: std::fs::Metadata) -> Self {
         Self {
             mode: Mode::from_bits_truncate(fs.mode()),
@@ -133,24 +130,20 @@ impl<'f> From<std::fs::Metadata> for Metadata<'f> {
     }
 }
 
-impl<'f> MetadataBuilder<'f> {
+impl MetadataBuilder {
     /// Add a single xattr
-    pub fn xattr(
-        &mut self,
-        name: &'f OsStr,
-        value: &'f [u8]
-    ) -> &mut Self {
+    pub fn xattr(&mut self, name: impl Into<Bytes>, value: impl Into<Bytes>) -> &mut Self {
         if self.xattrs.is_none() {
             self.xattrs = Some(BTreeMap::new());
         }
         self.xattrs
             .as_mut()
             .expect("this is Some")
-            .insert(name, value);
+            .insert(name.into(), value.into());
         self
     }
 
-    pub fn build(&mut self) -> Metadata<'f> {
+    pub fn build(&mut self) -> Metadata {
         self.fallible_build().expect("infallible")
     }
 }
@@ -161,49 +154,56 @@ impl<'f> From<File<'f>> for Entry<'f> {
     }
 }
 
-impl<'f> From<Directory<'f>> for Entry<'f> {
-    fn from(d: Directory<'f>) -> Self {
+impl<'f> From<Directory> for Entry<'f> {
+    fn from(d: Directory) -> Self {
         Self::Directory(d)
     }
 }
 
-impl<'f> From<Symlink<'f>> for Entry<'f> {
-    fn from(s: Symlink<'f>) -> Self {
+impl<'f> From<Symlink> for Entry<'f> {
+    fn from(s: Symlink) -> Self {
         Self::Symlink(s)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Builder)]
 #[builder(default, setter(into), build_fn(private, name = "fallible_build"))]
-pub struct Directory<'f> {
-    metadata: Metadata<'f>,
+pub struct Directory {
+    metadata: Metadata,
 }
 
-impl<'f> Directory<'f> {
-    pub fn builder() -> DirectoryBuilder<'f> {
+impl Directory {
+    pub fn builder() -> DirectoryBuilder {
         Default::default()
     }
 }
 
-impl<'f> DirectoryBuilder<'f> {
-    pub fn build(&mut self) -> Directory<'f> {
+impl DirectoryBuilder {
+    pub fn build(&mut self) -> Directory {
         self.fallible_build().expect("infallible")
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Getters, CopyGetters)]
-pub struct Symlink<'f> {
-    #[get = "pub"]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Symlink {
     /// Target path
-    target: &'f Path,
-    metadata: Metadata<'f>,
+    target: BytesPath,
+    metadata: Metadata,
 }
 
-impl<'f> Symlink<'f> {
-    pub fn new(target: &'f Path, metadata: Option<Metadata<'f>>) -> Self {
+impl Symlink {
+    pub fn new(target: impl Into<BytesPath>, metadata: Option<Metadata>) -> Self {
         Self {
             target: target.into(),
             metadata: metadata.unwrap_or_default(),
         }
+    }
+
+    pub fn target(&self) -> &Path {
+        &self.target
+    }
+
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 }
