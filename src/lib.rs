@@ -13,9 +13,9 @@ use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::fs::Permissions;
 use std::path::Path;
 
+use nix::sys::stat::Mode;
 use slotmap::SecondaryMap;
 use slotmap::SlotMap;
 
@@ -109,12 +109,12 @@ impl Filesystem {
             .ok_or(Error::NotFound)
     }
 
-    pub fn set_permissions<P>(&mut self, path: &P, permissions: Permissions) -> Result<()>
+    pub fn chmod<P>(&mut self, path: &P, mode: Mode) -> Result<()>
     where
         BytesPath: Borrow<P> + Ord,
         P: Ord + ?Sized,
     {
-        self.get_mut(path)?.set_permissions(permissions);
+        self.get_mut(path)?.chmod(mode);
         Ok(())
     }
 }

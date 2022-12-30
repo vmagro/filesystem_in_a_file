@@ -69,9 +69,7 @@ impl Subvols {
         for cmd in cmd_iter {
             match cmd {
                 Command::Chmod(c) => {
-                    subvol
-                        .fs
-                        .set_permissions(c.path().borrow(), c.mode().permissions())?;
+                    subvol.fs.chmod(c.path().borrow(), c.mode().mode())?;
                 }
                 _ => eprintln!("unimplemented command: {:?}", cmd),
             }
