@@ -13,6 +13,7 @@ use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::fs::Permissions;
 use std::path::Path;
 
 use slotmap::SecondaryMap;
@@ -35,6 +36,17 @@ pub(crate) use bytes_ext::BytesExt;
 pub use entry::Entry;
 use file::File;
 pub use path::BytesPath;
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("entry does not exist")]
+    NotFound,
+    #[cfg(feature = "btrfs")]
+    #[error(transparent)]
+    Btrfs(#[from] btrfs::Error),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 slotmap::new_key_type! { pub struct InodeKey; }
 
@@ -75,12 +87,35 @@ impl Filesystem {
         }
     }
 
-    pub fn get<P>(&self, path: &P) -> Option<&Entry>
+    pub fn get<P>(&self, path: &P) -> Result<&Entry>
     where
         BytesPath: Borrow<P> + Ord,
         P: Ord + ?Sized,
     {
-        self.paths.get(path).and_then(|key| self.inodes.get(*key))
+        self.paths
+            .get(path)
+            .and_then(|key| self.inodes.get(*key))
+            .ok_or(Error::NotFound)
+    }
+
+    pub fn get_mut<P>(&mut self, path: &P) -> Result<&mut Entry>
+    where
+        BytesPath: Borrow<P> + Ord,
+        P: Ord + ?Sized,
+    {
+        self.paths
+            .get(path)
+            .and_then(|key| self.inodes.get_mut(*key))
+            .ok_or(Error::NotFound)
+    }
+
+    pub fn set_permissions<P>(&mut self, path: &P, permissions: Permissions) -> Result<()>
+    where
+        BytesPath: Borrow<P> + Ord,
+        P: Ord + ?Sized,
+    {
+        self.get_mut(path)?.set_permissions(permissions);
+        Ok(())
     }
 }
 
@@ -89,7 +124,7 @@ impl PartialEq<Filesystem> for Filesystem {
         let mut unvisited: HashSet<&Path> = other.paths.keys().map(|k| k.as_path()).collect();
         for (path, entry) in self {
             unvisited.remove(path);
-            if let Some(other) = other.get(path) {
+            if let Ok(other) = other.get(path) {
                 if entry != other {
                     return false;
                 }

@@ -59,22 +59,19 @@ impl Filesystem {
                 let target = contents.slice(link_start..link_start + name_size);
                 fs.insert(path, Symlink::new(target, Some(metadata)));
             } else if sflag.contains(SFlag::S_IFREG) {
-                let mut builder = File::builder();
-                builder.metadata(
-                    Metadata::builder()
-                        .mode(mode)
-                        .uid(Uid::from_raw(entry.uid()))
-                        .gid(Gid::from_raw(entry.gid()))
-                        .build(),
-                );
                 let file_size = entry.file_size() as usize;
                 // the file starts at the header_start + HEADER_LEN + path +
                 // NUL, padded to the next multiple of 4
                 let file_start =
                     align_to_4_bytes(header_start_pos + HEADER_LEN + entry.name().len() + 1);
                 let file_contents = contents.slice(file_start..file_start + file_size);
-                builder.contents(file_contents);
-                fs.insert(path, builder.build());
+                fs.insert(
+                    path,
+                    File::builder()
+                        .contents(file_contents)
+                        .metadata(metadata)
+                        .build(),
+                );
             } else {
                 todo!();
             }

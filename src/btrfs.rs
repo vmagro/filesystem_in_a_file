@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
 use sendstream_parser::Command;
@@ -7,6 +8,7 @@ use uuid::Uuid;
 use crate::entry::Directory;
 use crate::file::File;
 use crate::Filesystem;
+use crate::Result;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -42,32 +44,35 @@ impl Subvols {
     }
 
     /// Parse subvolumes from an uncompressed sendstream
-    pub fn receive<'f>(&mut self, sendstream: Sendstream<'f>) -> Result<(), Error> {
+    pub fn receive<'f>(&mut self, sendstream: Sendstream<'f>) -> Result<()> {
         let mut cmd_iter = sendstream.commands().iter();
-        let (subvol_uuid, mut subvol) =
-            match cmd_iter.next().expect("must have at least one command") {
-                Command::Subvol(s) => {
-                    let mut subvol = Subvol::new();
-                    subvol.fs.insert("", Directory::default());
-                    (s.uuid(), subvol)
-                }
-                Command::Snapshot(s) => {
-                    let mut subvol = self
-                        .0
-                        .get(&s.clone_uuid())
-                        .ok_or(Error::MissingParent(s.clone_uuid()))?
-                        .clone();
-                    subvol.parent_uuid = Some(s.clone_uuid());
-                    (s.uuid(), subvol)
-                }
-                _ => {
-                    return Err(Error::InvariantViolated(
-                        "first command was not subvol start",
-                    ))
-                }
-            };
+        let (subvol_uuid, mut subvol) = match cmd_iter
+            .next()
+            .expect("must have at least one command")
+        {
+            Command::Subvol(s) => {
+                let mut subvol = Subvol::new();
+                subvol.fs.insert("", Directory::default());
+                (s.uuid(), subvol)
+            }
+            Command::Snapshot(s) => {
+                let mut subvol = self
+                    .0
+                    .get(&s.clone_uuid())
+                    .ok_or(Error::MissingParent(s.clone_uuid()))?
+                    .clone();
+                subvol.parent_uuid = Some(s.clone_uuid());
+                (s.uuid(), subvol)
+            }
+            _ => return Err(Error::InvariantViolated("first command was not subvol start").into()),
+        };
         for cmd in cmd_iter {
             match cmd {
+                Command::Chmod(c) => {
+                    subvol
+                        .fs
+                        .set_permissions(c.path().borrow(), c.mode().permissions())?;
+                }
                 _ => eprintln!("unimplemented command: {:?}", cmd),
             }
         }
