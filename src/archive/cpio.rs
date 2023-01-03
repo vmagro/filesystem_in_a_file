@@ -90,16 +90,10 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+    use crate::cmp::assert_approx_eq;
+    use crate::cmp::Fields;
     use crate::tests::demo_fs;
     use crate::BytesPath;
-
-    impl Filesystem {
-        pub(crate) fn clear_unsupported(&mut self) {
-            self.inodes
-                .values_mut()
-                .for_each(|e| e.metadata_mut().xattrs.clear())
-        }
-    }
 
     #[rstest]
     #[case(0, 0)]
@@ -124,7 +118,6 @@ mod tests {
         // cpio is missing the top-level directory
         demo_fs.unlink(&BytesPath::from(""));
         // cpio does not support xattrs
-        demo_fs.clear_unsupported();
-        assert_eq!(demo_fs, fs);
+        assert_approx_eq!(demo_fs, fs, Fields::all() - Fields::XATTR);
     }
 }
