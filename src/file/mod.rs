@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::ops::Range;
-use std::rc::Rc;
 
 use derive_builder::Builder;
 
@@ -86,10 +85,10 @@ impl File {
             .filter(|(start, e)| pos <= start + e.len())
     }
 
-    pub fn clone_range(this: Rc<Self>, range: Range<u64>) -> Vec<Extent> {
+    pub fn clone_range(&self, range: Range<u64>) -> Vec<Extent> {
         let mut v = Vec::new();
-        let (start, _) = this.extent_for_byte(range.start).expect("invalid range");
-        for (ext_start, ext) in this.extents.range(start..).take_while(|(start, ext)| {
+        let (start, _) = self.extent_for_byte(range.start).expect("invalid range");
+        for (ext_start, ext) in self.extents.range(start..).take_while(|(start, ext)| {
             [
                 std::cmp::max(**start, range.start),
                 std::cmp::min(**start + (ext.len()), range.end),
@@ -100,7 +99,7 @@ impl File {
             let start = std::cmp::max(range.start, *ext_start);
             let end = std::cmp::min(range.end, ext_start + ext.len());
             let cloned = Extent::Cloned(Cloned {
-                src_file: this.clone(),
+                src_file: self.clone(),
                 src_range: (start, end),
                 data: ext
                     .bytes()
@@ -149,11 +148,9 @@ pub(self) mod tests {
 
     #[test]
     fn cloning() {
-        let f = Rc::new(test_file());
-        let extents = File::clone_range(
-            f.clone(),
-            "Lorem ".len() as u64.."Lorem ".len() as u64 + "ipsum dolor".len() as u64,
-        );
+        let f = test_file();
+        let extents = f
+            .clone_range("Lorem ".len() as u64.."Lorem ".len() as u64 + "ipsum dolor".len() as u64);
         let mut f2 = File::new_empty();
         let mut w = f2.writer();
         assert_eq!(extents.len(), 2, "{extents:?}");

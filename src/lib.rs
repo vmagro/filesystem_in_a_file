@@ -46,6 +46,8 @@ pub use path::BytesPath;
 pub enum Error {
     #[error("entry does not exist")]
     NotFound,
+    #[error("entry type does not support this use")]
+    WrongEntryType,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

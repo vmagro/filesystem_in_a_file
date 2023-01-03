@@ -1,10 +1,14 @@
 use std::collections::BTreeMap;
+use std::io::Seek;
+use std::io::SeekFrom;
 
+use bytes::Bytes;
 use sendstream_parser::Command;
 use sendstream_parser::Sendstream;
 use uuid::Uuid;
 
 use crate::entry::Directory;
+use crate::entry::Entry;
 use crate::entry::Special;
 use crate::entry::Symlink;
 use crate::file::File;
@@ -54,6 +58,29 @@ impl Subvols {
         match cmd {
             Command::Chmod(c) => subvol.fs.chmod(c.path(), c.mode().mode()),
             Command::Chown(c) => subvol.fs.chown(c.path(), c.uid(), c.gid()),
+            Command::Clone(c) => {
+                let src = subvol.fs.get(c.src_path())?;
+                let extents = match src {
+                    Entry::File(f) => {
+                        let start = c.src_offset().as_u64();
+                        Ok(f.clone_range(start..start + c.len().as_u64()))
+                    }
+                    _ => Err(crate::Error::WrongEntryType),
+                }?;
+                let dst = subvol.fs.get_mut(c.dst_path())?;
+                match dst {
+                    Entry::File(f) => {
+                        let mut wr = f.writer();
+                        wr.seek(SeekFrom::Start(c.dst_offset().as_u64()))
+                            .expect("infallible");
+                        for ex in extents {
+                            wr.write(ex);
+                        }
+                        Ok(())
+                    }
+                    _ => Err(crate::Error::WrongEntryType),
+                }
+            }
             Command::Link(l) => subvol.fs.link(l.target().as_path(), l.link_name()),
             Command::Mkdir(m) => {
                 subvol.fs.insert(m.path().as_path(), Directory::default());
@@ -78,6 +105,13 @@ impl Subvols {
                 Ok(())
             }
             Command::Rename(r) => subvol.fs.rename(r.from(), r.to()),
+            Command::SetXattr(s) => {
+                subvol.fs.get_mut(s.path())?.metadata_mut().xattrs.insert(
+                    Bytes::copy_from_slice(s.name()),
+                    Bytes::copy_from_slice(s.data()),
+                );
+                Ok(())
+            }
             Command::Symlink(s) => {
                 subvol
                     .fs
@@ -87,6 +121,16 @@ impl Subvols {
             Command::Utimes(u) => subvol
                 .fs
                 .set_times(u.path(), *u.ctime(), *u.atime(), *u.mtime()),
+            Command::Write(w) => match subvol.fs.get_mut(w.path())? {
+                Entry::File(f) => {
+                    let mut wr = f.writer();
+                    wr.seek(SeekFrom::Start(w.offset().as_u64()))
+                        .expect("infallible");
+                    wr.write(Bytes::copy_from_slice(w.data().as_slice()));
+                    Ok(())
+                }
+                _ => Err(crate::Error::WrongEntryType),
+            },
             _ => {
                 todo!("unimplemented command: {:?}", cmd);
             }

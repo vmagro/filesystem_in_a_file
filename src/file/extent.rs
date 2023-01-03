@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use bytes::Bytes;
 
 use super::File;
@@ -66,7 +64,8 @@ impl Extent {
 /// sendstreams.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Cloned {
-    pub(super) src_file: Rc<File>,
+    // TODO: figure out a way to reference the original file better
+    pub(super) src_file: File,
     pub(super) src_range: (u64, u64),
     pub(super) data: Bytes,
 }
