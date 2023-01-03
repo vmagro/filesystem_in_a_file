@@ -41,9 +41,6 @@ pub use path::BytesPath;
 pub enum Error {
     #[error("entry does not exist")]
     NotFound,
-    #[cfg(feature = "btrfs")]
-    #[error(transparent)]
-    Btrfs(#[from] btrfs::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -74,12 +71,11 @@ impl Filesystem {
         key
     }
 
-    pub fn unlink<P>(&mut self, path: &P) -> bool
+    pub fn unlink<P>(&mut self, path: P) -> bool
     where
-        BytesPath: Borrow<P> + Ord,
-        P: Ord + ?Sized,
+        P: AsRef<Path>,
     {
-        if let Some(key) = self.paths.remove(path) {
+        if let Some(key) = self.paths.remove(path.as_ref()) {
             self.refcounts[key] -= 1;
             true
         } else {
@@ -87,34 +83,41 @@ impl Filesystem {
         }
     }
 
-    pub fn get<P>(&self, path: &P) -> Result<&Entry>
+    pub fn get<P>(&self, path: P) -> Result<&Entry>
     where
-        BytesPath: Borrow<P> + Ord,
-        P: Ord + ?Sized,
+        P: AsRef<Path>,
     {
         self.paths
-            .get(path)
+            .get(path.as_ref())
             .and_then(|key| self.inodes.get(*key))
             .ok_or(Error::NotFound)
     }
 
-    pub fn get_mut<P>(&mut self, path: &P) -> Result<&mut Entry>
+    pub fn get_mut<P>(&mut self, path: P) -> Result<&mut Entry>
     where
-        BytesPath: Borrow<P> + Ord,
-        P: Ord + ?Sized,
+        P: AsRef<Path>,
     {
         self.paths
-            .get(path)
+            .get(path.as_ref())
             .and_then(|key| self.inodes.get_mut(*key))
             .ok_or(Error::NotFound)
     }
 
-    pub fn chmod<P>(&mut self, path: &P, mode: Mode) -> Result<()>
+    pub fn chmod<P>(&mut self, path: P, mode: Mode) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        self.get_mut(path)?.chmod(mode);
+        Ok(())
+    }
+
+    pub fn rename<P>(&mut self, from: &P, to: impl Into<BytesPath>) -> Result<()>
     where
         BytesPath: Borrow<P> + Ord,
         P: Ord + ?Sized,
     {
-        self.get_mut(path)?.chmod(mode);
+        let inode = self.paths.remove(from).ok_or(Error::NotFound)?;
+        self.paths.insert(to.into(), inode);
         Ok(())
     }
 }

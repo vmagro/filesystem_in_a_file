@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
 use sendstream_parser::Command;
@@ -8,16 +7,20 @@ use uuid::Uuid;
 use crate::entry::Directory;
 use crate::file::File;
 use crate::Filesystem;
-use crate::Result;
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum Error<'c> {
     #[error("invariant violated: {0}")]
     InvariantViolated(&'static str),
     #[error("parent subvol not yet received: {0}")]
     MissingParent(Uuid),
     #[error(transparent)]
-    Parse(#[from] sendstream_parser::Error),
+    Parse(sendstream_parser::Error<'c>),
+    #[error("failed to apply {command:?}: {error:?}")]
+    Apply {
+        command: Command<'c>,
+        error: crate::Error,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,9 +46,28 @@ impl Subvols {
         Self(BTreeMap::new())
     }
 
+    fn apply_cmd(subvol: &mut Subvol, cmd: &Command<'_>) -> crate::Result<()> {
+        match cmd {
+            Command::Chmod(c) => subvol.fs.chmod(c.path(), c.mode().mode()),
+            Command::Mkdir(m) => {
+                subvol.fs.insert(m.path().as_path(), Directory::default());
+                Ok(())
+            }
+            Command::Mkfile(m) => {
+                subvol.fs.insert(m.path().as_path(), File::default());
+                Ok(())
+            }
+            Command::Rename(r) => subvol.fs.rename(r.from(), r.to()),
+            _ => {
+                eprintln!("unimplemented command: {:?}", cmd);
+                Ok(())
+            }
+        }
+    }
+
     /// Parse subvolumes from an uncompressed sendstream
-    pub fn receive<'f>(&mut self, sendstream: Sendstream<'f>) -> Result<()> {
-        let mut cmd_iter = sendstream.commands().iter();
+    pub fn receive<'f>(&mut self, sendstream: Sendstream<'f>) -> Result<(), Error<'f>> {
+        let mut cmd_iter = sendstream.into_commands().into_iter();
         let (subvol_uuid, mut subvol) = match cmd_iter
             .next()
             .expect("must have at least one command")
@@ -67,12 +89,10 @@ impl Subvols {
             _ => return Err(Error::InvariantViolated("first command was not subvol start").into()),
         };
         for cmd in cmd_iter {
-            match cmd {
-                Command::Chmod(c) => {
-                    subvol.fs.chmod(c.path().borrow(), c.mode().mode())?;
-                }
-                _ => eprintln!("unimplemented command: {:?}", cmd),
-            }
+            Self::apply_cmd(&mut subvol, &cmd).map_err(|error| Error::Apply {
+                command: cmd,
+                error,
+            })?;
         }
         self.0.insert(subvol_uuid, subvol);
         Ok(())
