@@ -109,6 +109,26 @@ impl File {
         }
         v
     }
+
+    /// Force the file length to be this value. Extents are shrunk or deleted if
+    /// the new size is smaller. If the new size is larger, an extent of
+    /// all-zeroes is created at the end of the file
+    pub fn truncate(&mut self, len: u64) {
+        if len < self.len() {
+            self.extents.retain(|k, _| *k < len);
+            let last_start = self.extents.last_key_value().map(|(k, _)| *k);
+            if let Some(start) = last_start {
+                let pos = len - start;
+                self.extents
+                    .get_mut(&start)
+                    .expect("definitely exists")
+                    .split_at(pos as usize);
+            }
+        } else {
+            self.extents
+                .insert(self.len(), Extent::Hole(len - self.len()));
+        }
+    }
 }
 
 impl ApproxEq for File {
@@ -162,5 +182,18 @@ pub(self) mod tests {
             "ipsum dolor",
             "{f2:?}"
         );
+    }
+
+    #[test]
+    fn truncate() {
+        let mut f = test_file();
+        f.truncate(5);
+        assert_eq!(f.to_bytes(), b"Lorem");
+        assert_eq!(f.extents.len(), 1);
+
+        let mut f = test_file();
+        f.truncate(("Lorem ipsum dolor sit amet".len() + 128) as u64);
+        assert_eq!(f.len(), ("Lorem ipsum dolor sit amet".len() + 128) as u64);
+        assert_eq!(f.extents.len(), 3);
     }
 }

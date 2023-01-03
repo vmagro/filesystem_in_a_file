@@ -118,6 +118,7 @@ impl Subvols {
                     .insert(s.link_name(), Symlink::new(s.target().as_path(), None));
                 Ok(())
             }
+            Command::Truncate(t) => subvol.fs.truncate(t.path(), t.size()),
             Command::Utimes(u) => subvol
                 .fs
                 .set_times(u.path(), *u.ctime(), *u.atime(), *u.mtime()),

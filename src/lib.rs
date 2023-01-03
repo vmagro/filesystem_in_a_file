@@ -168,6 +168,19 @@ impl Filesystem {
         self.paths.insert(new.into(), key.clone());
         Ok(())
     }
+
+    pub fn truncate<P>(&mut self, path: P, len: u64) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        match self.get_mut(path)? {
+            Entry::File(f) => {
+                f.truncate(len);
+                Ok(())
+            }
+            _ => Err(Error::WrongEntryType),
+        }
+    }
 }
 
 // Exact inode number equality is unimportant, what is important is that all the

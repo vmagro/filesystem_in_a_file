@@ -12,11 +12,16 @@ pub enum Extent {
     Owned(Bytes),
     /// This extent came from part of another File.
     Cloned(Cloned),
+    /// This extent was created with 'truncate' and is actually empty
+    Hole(u64),
 }
 
 impl Extent {
     pub fn len(&self) -> u64 {
-        self.data().len() as u64
+        match self {
+            Self::Hole(s) => *s,
+            _ => self.data().len() as u64,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -27,6 +32,7 @@ impl Extent {
         match self {
             Self::Owned(c) => &c,
             Self::Cloned(c) => &c.data,
+            Self::Hole(_) => &[],
         }
     }
 
@@ -34,6 +40,7 @@ impl Extent {
         match self {
             Self::Owned(c) => c.clone(),
             Self::Cloned(c) => c.data.clone(),
+            Self::Hole(_) => Bytes::new(),
         }
     }
 
@@ -54,6 +61,11 @@ impl Extent {
                     ),
                     data: right,
                 })
+            }
+            Self::Hole(ref mut h) => {
+                let right = Self::Hole(*h - at as u64);
+                *h = at as u64;
+                right
             }
         }
     }
@@ -86,6 +98,7 @@ impl std::fmt::Debug for Extent {
                 d.finish()
             }
             Self::Cloned(c) => f.debug_tuple("Cloned").field(&c).finish(),
+            Self::Hole(h) => f.debug_tuple("Hole").field(&h).finish(),
         }
     }
 }
