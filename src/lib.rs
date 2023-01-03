@@ -124,9 +124,10 @@ impl Filesystem {
         Ok(())
     }
 
-    pub fn rename<P>(&mut self, from: P, to: impl Into<BytesPath>) -> Result<()>
+    pub fn rename<P1, P2>(&mut self, from: P1, to: P2) -> Result<()>
     where
-        P: AsRef<Path>,
+        P1: AsRef<Path>,
+        P2: Into<BytesPath>,
     {
         let inode = self.paths.remove(from.as_ref()).ok_or(Error::NotFound)?;
         self.paths.insert(to.into(), inode);
@@ -146,6 +147,23 @@ impl Filesystem {
         self.get_mut(path)?
             .metadata_mut()
             .set_times(created, accessed, modified);
+        Ok(())
+    }
+
+    /// Create a hard link to an existing file. This increments the refcount of
+    /// the original inode. The the original path is later unlinked, this
+    /// reference will keep the underlying entry alive.
+    pub fn link<P1, P2>(&mut self, old: P1, new: P2) -> Result<()>
+    where
+        P1: AsRef<Path>,
+        P2: Into<BytesPath>,
+    {
+        let key = self.paths.get(old.as_ref()).ok_or(Error::NotFound)?;
+        self.refcounts
+            .entry(*key)
+            .ok_or(Error::NotFound)?
+            .and_modify(|r| *r += 1);
+        self.paths.insert(new.into(), key.clone());
         Ok(())
     }
 }

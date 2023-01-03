@@ -54,6 +54,7 @@ impl Subvols {
         match cmd {
             Command::Chmod(c) => subvol.fs.chmod(c.path(), c.mode().mode()),
             Command::Chown(c) => subvol.fs.chown(c.path(), c.uid(), c.gid()),
+            Command::Link(l) => subvol.fs.link(l.target().as_path(), l.link_name()),
             Command::Mkdir(m) => {
                 subvol.fs.insert(m.path().as_path(), Directory::default());
                 Ok(())
@@ -88,7 +89,6 @@ impl Subvols {
                 .set_times(u.path(), *u.ctime(), *u.atime(), *u.mtime()),
             _ => {
                 todo!("unimplemented command: {:?}", cmd);
-                Ok(())
             }
         }
     }
