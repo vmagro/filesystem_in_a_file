@@ -4,6 +4,7 @@ name = "filesystem_in_a_file"
 version = "0.1.0"
 
 [dependencies]
+anyhow = "1"
 bitflags = "1.3"
 bytes = "1.3"
 cpio = {version = "0.2", optional = true}

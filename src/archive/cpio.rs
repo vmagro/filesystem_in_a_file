@@ -116,7 +116,7 @@ mod tests {
         let fs = Filesystem::parse_cpio(&contents).expect("failed to parse cpio");
         let mut demo_fs = demo_fs();
         // cpio is missing the top-level directory
-        demo_fs.unlink(&BytesPath::from(""));
+        demo_fs.unlink(&BytesPath::from("")).unwrap();
         // cpio does not support xattrs
         assert_approx_eq!(demo_fs, fs, Fields::all() - Fields::XATTR);
     }

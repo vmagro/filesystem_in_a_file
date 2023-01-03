@@ -108,7 +108,7 @@ mod tests {
         let fs = Filesystem::parse_tar(&contents).expect("failed to parse tar");
         let mut demo_fs = demo_fs();
         // tar is missing the top-level directory
-        demo_fs.unlink(&BytesPath::from(""));
+        demo_fs.unlink(&BytesPath::from("")).unwrap();
         assert_eq!(demo_fs, fs);
     }
 }

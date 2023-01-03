@@ -8,6 +8,7 @@ use std::time::SystemTime;
 use bytes::Bytes;
 use derive_builder::Builder;
 use derive_more::From;
+use derive_more::IsVariant;
 use getset::CopyGetters;
 use getset::Getters;
 use nix::sys::stat::FileStat;
@@ -22,7 +23,7 @@ use crate::BytesPath;
 use crate::File;
 
 /// A single directory entry in the filesystem.
-#[derive(Debug, Clone, PartialEq, Eq, From)]
+#[derive(Debug, Clone, PartialEq, Eq, From, IsVariant)]
 #[remain::sorted]
 pub enum Entry {
     Directory(Directory),

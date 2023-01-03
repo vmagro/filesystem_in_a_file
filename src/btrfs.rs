@@ -1,14 +1,15 @@
 use std::collections::BTreeMap;
 use std::io::Seek;
 use std::io::SeekFrom;
+use std::ops::Deref;
 
+use anyhow::anyhow;
 use bytes::Bytes;
 use sendstream_parser::Command;
 use sendstream_parser::Sendstream;
 use uuid::Uuid;
 
 use crate::entry::Directory;
-use crate::entry::Entry;
 use crate::entry::Special;
 use crate::entry::Symlink;
 use crate::file::File;
@@ -53,34 +54,25 @@ impl Subvols {
     }
 
     #[remain::check]
-    fn apply_cmd(subvol: &mut Subvol, cmd: &Command<'_>) -> crate::Result<()> {
+    fn apply_cmd(&mut self, subvol: &mut Subvol, cmd: &Command<'_>) -> crate::Result<()> {
         #[remain::sorted]
         match cmd {
             Command::Chmod(c) => subvol.fs.chmod(c.path(), c.mode().mode()),
             Command::Chown(c) => subvol.fs.chown(c.path(), c.uid(), c.gid()),
             Command::Clone(c) => {
-                let src = subvol.fs.get(c.src_path())?;
-                let extents = match src {
-                    Entry::File(f) => {
-                        let start = c.src_offset().as_u64();
-                        Ok(f.clone_range(start..start + c.len().as_u64()))
-                    }
-                    _ => Err(crate::Error::WrongEntryType),
-                }?;
-                let dst = subvol.fs.get_mut(c.dst_path())?;
-                match dst {
-                    Entry::File(f) => {
-                        let mut wr = f.writer();
-                        wr.seek(SeekFrom::Start(c.dst_offset().as_u64()))
-                            .expect("infallible");
-                        for ex in extents {
-                            wr.write(ex);
-                        }
-                        Ok(())
-                    }
-                    _ => Err(crate::Error::WrongEntryType),
+                let src = subvol.fs.get_file(c.src_path())?;
+                let start = c.src_offset().as_u64();
+                let extents = src.clone_range(start..start + c.len().as_u64());
+                let dst = subvol.fs.get_file_mut(c.dst_path())?;
+                let mut wr = dst.writer();
+                wr.seek(SeekFrom::Start(c.dst_offset().as_u64()))
+                    .expect("infallible");
+                for ex in extents {
+                    wr.write(ex);
                 }
+                Ok(())
             }
+            Command::End => Ok(()),
             Command::Link(l) => subvol.fs.link(l.target().as_path(), l.link_name()),
             Command::Mkdir(m) => {
                 subvol.fs.insert(m.path().as_path(), Directory::default());
@@ -111,13 +103,29 @@ impl Subvols {
                 );
                 Ok(())
             }
+            Command::RemoveXattr(r) => {
+                subvol
+                    .fs
+                    .get_mut(r.path())?
+                    .metadata_mut()
+                    .xattrs
+                    .retain(|k, _| k != r.name().deref());
+                Ok(())
+            }
             Command::Rename(r) => subvol.fs.rename(r.from(), r.to()),
+            Command::Rmdir(r) => subvol.fs.rmdir(r.path()),
             Command::SetXattr(s) => {
                 subvol.fs.get_mut(s.path())?.metadata_mut().xattrs.insert(
                     Bytes::copy_from_slice(s.name()),
                     Bytes::copy_from_slice(s.data()),
                 );
                 Ok(())
+            }
+            Command::Snapshot(s) => {
+                todo!()
+            }
+            Command::Subvol(s) => {
+                todo!()
             }
             Command::Symlink(s) => {
                 subvol
@@ -126,19 +134,21 @@ impl Subvols {
                 Ok(())
             }
             Command::Truncate(t) => subvol.fs.truncate(t.path(), t.size()),
+            Command::Unlink(u) => subvol.fs.unlink(u.path()),
+            Command::UpdateExtent(_) => {
+                Err(anyhow!("UpdateExtent command is not supported").into())
+            }
             Command::Utimes(u) => subvol
                 .fs
                 .set_times(u.path(), *u.ctime(), *u.atime(), *u.mtime()),
-            Command::Write(w) => match subvol.fs.get_mut(w.path())? {
-                Entry::File(f) => {
-                    let mut wr = f.writer();
-                    wr.seek(SeekFrom::Start(w.offset().as_u64()))
-                        .expect("infallible");
-                    wr.write(Bytes::copy_from_slice(w.data().as_slice()));
-                    Ok(())
-                }
-                _ => Err(crate::Error::WrongEntryType),
-            },
+            Command::Write(w) => {
+                let f = subvol.fs.get_file_mut(w.path())?;
+                let mut wr = f.writer();
+                wr.seek(SeekFrom::Start(w.offset().as_u64()))
+                    .expect("infallible");
+                wr.write(Bytes::copy_from_slice(w.data().as_slice()));
+                Ok(())
+            }
         }
     }
 
@@ -167,10 +177,11 @@ impl Subvols {
             _ => return Err(Error::InvariantViolated("first command was not subvol start").into()),
         };
         for cmd in cmd_iter {
-            Self::apply_cmd(&mut subvol, &cmd).map_err(|error| Error::Apply {
-                command: cmd,
-                error,
-            })?;
+            self.apply_cmd(&mut subvol, &cmd)
+                .map_err(|error| Error::Apply {
+                    command: cmd,
+                    error,
+                })?;
         }
         self.0.insert(subvol_uuid, subvol);
         Ok(())

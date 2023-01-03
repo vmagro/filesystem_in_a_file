@@ -46,8 +46,12 @@ pub use path::BytesPath;
 pub enum Error {
     #[error("entry does not exist")]
     NotFound,
+    #[error("directory to be removed is not empty")]
+    NotEmpty,
     #[error("entry type does not support this use")]
     WrongEntryType,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -78,15 +82,15 @@ impl Filesystem {
         key
     }
 
-    pub fn unlink<P>(&mut self, path: P) -> bool
+    pub fn unlink<P>(&mut self, path: P) -> Result<()>
     where
         P: AsRef<Path>,
     {
         if let Some(key) = self.paths.remove(path.as_ref()) {
             self.refcounts[key] -= 1;
-            true
+            Ok(())
         } else {
-            false
+            Err(Error::NotFound)
         }
     }
 
@@ -108,6 +112,26 @@ impl Filesystem {
             .get(path.as_ref())
             .and_then(|key| self.inodes.get_mut(*key))
             .ok_or(Error::NotFound)
+    }
+
+    pub fn get_file<P>(&self, path: P) -> Result<&File>
+    where
+        P: AsRef<Path>,
+    {
+        match self.get(path)? {
+            Entry::File(f) => Ok(f),
+            _ => Err(Error::WrongEntryType),
+        }
+    }
+
+    pub fn get_file_mut<P>(&mut self, path: P) -> Result<&mut File>
+    where
+        P: AsRef<Path>,
+    {
+        match self.get_mut(path)? {
+            Entry::File(f) => Ok(f),
+            _ => Err(Error::WrongEntryType),
+        }
     }
 
     pub fn chmod<P>(&mut self, path: P, mode: Mode) -> Result<()>
@@ -161,6 +185,9 @@ impl Filesystem {
         P2: Into<BytesPath>,
     {
         let key = self.paths.get(old.as_ref()).ok_or(Error::NotFound)?;
+        if !self.inodes[*key].is_file() {
+            return Err(Error::WrongEntryType);
+        }
         self.refcounts
             .entry(*key)
             .ok_or(Error::NotFound)?
@@ -173,13 +200,27 @@ impl Filesystem {
     where
         P: AsRef<Path>,
     {
-        match self.get_mut(path)? {
-            Entry::File(f) => {
-                f.truncate(len);
-                Ok(())
-            }
-            _ => Err(Error::WrongEntryType),
+        self.get_file_mut(path)?.truncate(len);
+        Ok(())
+    }
+
+    /// Remove a directory, failing if it is not empty
+    pub fn rmdir<P>(&mut self, path: P) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let dir = path.as_ref();
+        if !self.get(dir)?.is_directory() {
+            return Err(Error::WrongEntryType);
         }
+        if self
+            .paths
+            .iter()
+            .any(|(p, _)| p.starts_with(dir) && dir != p.as_path())
+        {
+            return Err(Error::NotEmpty);
+        }
+        Ok(())
     }
 }
 
@@ -372,7 +413,7 @@ pub(crate) mod tests {
     fn partial_eq() {
         assert_eq!(demo_fs(), demo_fs());
         let mut other = demo_fs().clone();
-        other.unlink("testdata/dir/lorem.txt");
+        other.unlink("testdata/dir/lorem.txt").unwrap();
         assert_ne!(demo_fs(), other);
     }
 }
