@@ -5,6 +5,8 @@ use sendstream_parser::Sendstream;
 use uuid::Uuid;
 
 use crate::entry::Directory;
+use crate::entry::Special;
+use crate::entry::Symlink;
 use crate::file::File;
 use crate::Filesystem;
 
@@ -56,19 +58,36 @@ impl Subvols {
                 subvol.fs.insert(m.path().as_path(), Directory::default());
                 Ok(())
             }
-            Command::Mkfifo(m) => {
-                todo!("{:?}", m);
+            Command::Mkfifo(ref m) => {
+                subvol.fs.insert(
+                    m.path().as_path(),
+                    Special::new(m.mode().file_type(), Default::default()),
+                );
+                Ok(())
             }
             Command::Mkfile(m) => {
                 subvol.fs.insert(m.path().as_path(), File::default());
                 Ok(())
             }
+            Command::Mksock(ref m) => {
+                subvol.fs.insert(
+                    m.path().as_path(),
+                    Special::new(m.mode().file_type(), Default::default()),
+                );
+                Ok(())
+            }
             Command::Rename(r) => subvol.fs.rename(r.from(), r.to()),
+            Command::Symlink(s) => {
+                subvol
+                    .fs
+                    .insert(s.link_name(), Symlink::new(s.target().as_path(), None));
+                Ok(())
+            }
             Command::Utimes(u) => subvol
                 .fs
                 .set_times(u.path(), *u.ctime(), *u.atime(), *u.mtime()),
             _ => {
-                eprintln!("unimplemented command: {:?}", cmd);
+                todo!("unimplemented command: {:?}", cmd);
                 Ok(())
             }
         }
