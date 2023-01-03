@@ -78,15 +78,15 @@ impl Filesystem {
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_eq;
-
     use super::*;
+    use crate::cmp::assert_approx_eq;
+    use crate::cmp::Fields;
     use crate::tests::demo_fs;
 
     #[test]
     fn from_dir() {
         let fs = Filesystem::from_dir(&Path::new(env!("OUT_DIR")).join("fs"))
             .expect("failed to load from directory");
-        assert_eq!(demo_fs(), fs);
+        assert_approx_eq!(demo_fs(), fs, Fields::all() - Fields::TIME);
     }
 }

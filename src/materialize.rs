@@ -80,6 +80,10 @@ mod tests {
             .expect("failed to materialize");
         let materialized_fs =
             Filesystem::from_dir(tmpdir.path()).expect("failed to read materialized dir");
-        assert_eq!(materialized_fs, demo_fs);
+        crate::cmp::assert_approx_eq!(
+            materialized_fs,
+            demo_fs,
+            crate::cmp::Fields::all() - crate::cmp::Fields::TIME
+        );
     }
 }

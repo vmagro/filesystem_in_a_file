@@ -28,6 +28,7 @@ pub mod archive;
 #[cfg(feature = "btrfs")]
 pub mod btrfs;
 mod bytes_ext;
+pub mod cmp;
 #[cfg(feature = "dir")]
 mod dir;
 mod entry;
@@ -149,6 +150,9 @@ impl Filesystem {
     }
 }
 
+// Exact inode number equality is unimportant, what is important is that all the
+// visible attributes of a filesystem are equal (in other words, data that is
+// accessible via a path)
 impl PartialEq<Filesystem> for Filesystem {
     fn eq(&self, other: &Self) -> bool {
         let mut unvisited: HashSet<&Path> = other.paths.keys().map(|k| k.as_path()).collect();
@@ -167,6 +171,33 @@ impl PartialEq<Filesystem> for Filesystem {
 }
 
 impl Eq for Filesystem {}
+
+impl cmp::ApproxEq for Filesystem {
+    #[deny(unused_variables)]
+    fn cmp(&self, other: &Self) -> cmp::Fields {
+        let Self {
+            paths,
+            inodes,
+            refcounts: _,
+        } = &self;
+        let mut f = cmp::Fields::all();
+        let self_paths: HashSet<_> = paths.keys().collect();
+        let other_paths: HashSet<_> = other.paths.keys().collect();
+        if self_paths != other_paths {
+            f.remove(cmp::Fields::PATH);
+        }
+        for (path, inode) in paths {
+            let entry = &inodes[*inode];
+            match other.get(path) {
+                Err(_) => f.remove(cmp::Fields::all_entry_fields()),
+                Ok(other_entry) => {
+                    f = f.intersection(cmp::ApproxEq::cmp(entry, other_entry));
+                }
+            }
+        }
+        f
+    }
+}
 
 impl<P> FromIterator<(P, Entry)> for Filesystem
 where

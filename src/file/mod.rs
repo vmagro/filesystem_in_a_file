@@ -12,6 +12,8 @@ pub mod writer;
 use extent::Cloned;
 use extent::Extent;
 
+use crate::cmp::ApproxEq;
+use crate::cmp::Fields;
 use crate::entry::Metadata;
 
 /// A single file in the filesystem. This has a number of metadata attributes
@@ -107,6 +109,21 @@ impl File {
             v.push(cloned);
         }
         v
+    }
+}
+
+impl ApproxEq for File {
+    #[deny(unused_variables)]
+    fn cmp(&self, other: &Self) -> Fields {
+        let Self { metadata, extents } = self;
+        let mut f = metadata.cmp(&other.metadata);
+        if *extents != other.extents {
+            f.remove(Fields::EXTENTS);
+        }
+        if self.to_bytes() != other.to_bytes() {
+            f.remove(Fields::DATA);
+        }
+        f
     }
 }
 

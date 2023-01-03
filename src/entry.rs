@@ -7,6 +7,7 @@ use std::time::SystemTime;
 
 use bytes::Bytes;
 use derive_builder::Builder;
+use derive_more::From;
 use getset::CopyGetters;
 use getset::Getters;
 use nix::sys::stat::FileStat;
@@ -15,11 +16,13 @@ use nix::sys::stat::SFlag;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
 
+use crate::cmp::ApproxEq;
+use crate::cmp::Fields;
 use crate::BytesPath;
 use crate::File;
 
 /// A single directory entry in the filesystem.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, From)]
 #[remain::sorted]
 pub enum Entry {
     Directory(Directory),
@@ -64,6 +67,22 @@ impl Entry {
 
     pub fn remove_xattr(&mut self, name: &Bytes) -> Option<Bytes> {
         self.metadata_mut().xattrs.remove(name)
+    }
+}
+
+impl ApproxEq for Entry {
+    fn cmp(&self, other: &Self) -> Fields {
+        let f = self.metadata().cmp(other.metadata());
+        match (self, other) {
+            (Self::Directory(s), Self::Directory(o)) => f.intersection(s.cmp(o)),
+            (Self::Directory(_), _) => f - Fields::TYPE,
+            (Self::File(s), Self::File(o)) => f.intersection(s.cmp(o)),
+            (Self::File(_), _) => f - Fields::TYPE,
+            (Self::Special(_), Self::Special(_)) => self.metadata().cmp(other.metadata()),
+            (Self::Special(_), _) => f - Fields::TYPE,
+            (Self::Symlink(s), Self::Symlink(o)) => f.intersection(s.cmp(o)),
+            (Self::Symlink(_), _) => f - Fields::TYPE,
+        }
     }
 }
 
@@ -183,21 +202,32 @@ impl MetadataBuilder {
     }
 }
 
-impl From<File> for Entry {
-    fn from(f: File) -> Self {
-        Self::File(f)
-    }
-}
-
-impl From<Directory> for Entry {
-    fn from(d: Directory) -> Self {
-        Self::Directory(d)
-    }
-}
-
-impl From<Symlink> for Entry {
-    fn from(s: Symlink) -> Self {
-        Self::Symlink(s)
+impl ApproxEq for Metadata {
+    #[deny(unused_variables)]
+    fn cmp(&self, other: &Self) -> Fields {
+        let Self {
+            mode,
+            uid,
+            gid,
+            xattrs,
+            created,
+            accessed,
+            modified,
+        } = self;
+        let mut f = Fields::all();
+        if *mode != other.mode {
+            f.remove(Fields::MODE);
+        }
+        if *uid != other.uid || *gid != other.gid {
+            f.remove(Fields::OWNER);
+        }
+        if *xattrs != other.xattrs {
+            f.remove(Fields::XATTR);
+        }
+        if *created != other.created || *accessed != other.accessed || *modified != other.modified {
+            f.remove(Fields::TIME);
+        }
+        f
     }
 }
 
@@ -216,6 +246,14 @@ impl Directory {
 impl DirectoryBuilder {
     pub fn build(&mut self) -> Directory {
         self.fallible_build().expect("infallible")
+    }
+}
+
+impl ApproxEq for Directory {
+    #[deny(unused_variables)]
+    fn cmp(&self, other: &Self) -> Fields {
+        let Self { metadata } = self;
+        metadata.cmp(&other.metadata)
     }
 }
 
@@ -244,6 +282,21 @@ impl Special {
     }
 }
 
+impl ApproxEq for Special {
+    #[deny(unused_variables)]
+    fn cmp(&self, other: &Self) -> Fields {
+        let Self {
+            file_type,
+            metadata,
+        } = self;
+        let mut f = metadata.cmp(&other.metadata);
+        if *file_type != other.file_type {
+            f.remove(Fields::TYPE);
+        }
+        f
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symlink {
     /// Target path
@@ -265,5 +318,17 @@ impl Symlink {
 
     pub fn metadata(&self) -> &Metadata {
         &self.metadata
+    }
+}
+
+impl ApproxEq for Symlink {
+    #[deny(unused_variables)]
+    fn cmp(&self, other: &Self) -> Fields {
+        let Self { target, metadata } = self;
+        let mut f = metadata.cmp(&other.metadata);
+        if *target != other.target {
+            f.remove(Fields::DATA);
+        }
+        f
     }
 }
