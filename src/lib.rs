@@ -7,15 +7,19 @@
 //! can be represented in the archive format).
 
 #![feature(io_error_other)]
+#![feature(proc_macro_hygiene)]
+#![feature(stmt_expr_attributes)]
 #![feature(unix_chown)]
 
-use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::Path;
+use std::time::SystemTime;
 
 use nix::sys::stat::Mode;
+use nix::unistd::Gid;
+use nix::unistd::Uid;
 use slotmap::SecondaryMap;
 use slotmap::SlotMap;
 
@@ -111,13 +115,36 @@ impl Filesystem {
         Ok(())
     }
 
-    pub fn rename<P>(&mut self, from: &P, to: impl Into<BytesPath>) -> Result<()>
+    pub fn chown<P>(&mut self, path: P, uid: Uid, gid: Gid) -> Result<()>
     where
-        BytesPath: Borrow<P> + Ord,
-        P: Ord + ?Sized,
+        P: AsRef<Path>,
     {
-        let inode = self.paths.remove(from).ok_or(Error::NotFound)?;
+        self.get_mut(path)?.chown(uid, gid);
+        Ok(())
+    }
+
+    pub fn rename<P>(&mut self, from: P, to: impl Into<BytesPath>) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        let inode = self.paths.remove(from.as_ref()).ok_or(Error::NotFound)?;
         self.paths.insert(to.into(), inode);
+        Ok(())
+    }
+
+    pub fn set_times<P>(
+        &mut self,
+        path: P,
+        created: SystemTime,
+        accessed: SystemTime,
+        modified: SystemTime,
+    ) -> Result<()>
+    where
+        P: AsRef<Path>,
+    {
+        self.get_mut(path)?
+            .metadata_mut()
+            .set_times(created, accessed, modified);
         Ok(())
     }
 }

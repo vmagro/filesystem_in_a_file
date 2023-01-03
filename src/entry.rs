@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use std::time::Duration;
+use std::time::SystemTime;
 
 use bytes::Bytes;
 use derive_builder::Builder;
@@ -9,6 +11,7 @@ use getset::CopyGetters;
 use getset::Getters;
 use nix::sys::stat::FileStat;
 use nix::sys::stat::Mode;
+use nix::sys::stat::SFlag;
 use nix::unistd::Gid;
 use nix::unistd::Uid;
 
@@ -17,26 +20,32 @@ use crate::File;
 
 /// A single directory entry in the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[remain::sorted]
 pub enum Entry {
+    Directory(Directory),
     /// A regular file
     File(File),
-    Directory(Directory),
+    Special(Special),
     Symlink(Symlink),
 }
 
 impl Entry {
     pub fn metadata(&self) -> &Metadata {
+        #[remain::sorted]
         match self {
-            Self::File(f) => &f.metadata,
             Self::Directory(d) => &d.metadata,
+            Self::File(f) => &f.metadata,
+            Self::Special(s) => &s.metadata,
             Self::Symlink(s) => &s.metadata,
         }
     }
 
     pub fn metadata_mut(&mut self) -> &mut Metadata {
+        #[remain::sorted]
         match self {
-            Self::File(f) => &mut f.metadata,
             Self::Directory(d) => &mut d.metadata,
+            Self::File(f) => &mut f.metadata,
+            Self::Special(s) => &mut s.metadata,
             Self::Symlink(s) => &mut s.metadata,
         }
     }
@@ -69,6 +78,12 @@ pub struct Metadata {
     pub(crate) gid: Gid,
     #[get = "pub"]
     pub(crate) xattrs: BTreeMap<Bytes, Bytes>,
+    #[get_copy = "pub"]
+    pub(crate) created: SystemTime,
+    #[get_copy = "pub"]
+    pub(crate) accessed: SystemTime,
+    #[get_copy = "pub"]
+    pub(crate) modified: SystemTime,
 }
 
 impl Metadata {
@@ -88,6 +103,12 @@ impl Metadata {
     pub fn chmod(&mut self, mode: Mode) {
         self.mode = mode;
     }
+
+    pub fn set_times(&mut self, created: SystemTime, accessed: SystemTime, modified: SystemTime) {
+        self.created = created;
+        self.accessed = accessed;
+        self.modified = modified;
+    }
 }
 
 impl Default for Metadata {
@@ -97,6 +118,9 @@ impl Default for Metadata {
             uid: Uid::from_raw(0),
             gid: Gid::from_raw(0),
             xattrs: BTreeMap::new(),
+            created: SystemTime::UNIX_EPOCH,
+            accessed: SystemTime::UNIX_EPOCH,
+            modified: SystemTime::UNIX_EPOCH,
         }
     }
 }
@@ -108,6 +132,15 @@ impl From<FileStat> for Metadata {
             uid: Uid::from_raw(fs.st_uid),
             gid: Gid::from_raw(fs.st_gid),
             xattrs: BTreeMap::new(),
+            created: SystemTime::UNIX_EPOCH
+                + Duration::from_secs(fs.st_ctime.try_into().expect("must be positive"))
+                + Duration::from_nanos(fs.st_ctime_nsec.try_into().expect("must be positive")),
+            accessed: SystemTime::UNIX_EPOCH
+                + Duration::from_secs(fs.st_atime.try_into().expect("must be positive"))
+                + Duration::from_nanos(fs.st_atime_nsec.try_into().expect("must be positive")),
+            modified: SystemTime::UNIX_EPOCH
+                + Duration::from_secs(fs.st_mtime.try_into().expect("must be positive"))
+                + Duration::from_nanos(fs.st_mtime_nsec.try_into().expect("must be positive")),
         }
     }
 }
@@ -119,6 +152,15 @@ impl From<std::fs::Metadata> for Metadata {
             uid: Uid::from_raw(fs.uid()),
             gid: Gid::from_raw(fs.gid()),
             xattrs: BTreeMap::new(),
+            created: SystemTime::UNIX_EPOCH
+                + Duration::from_secs(fs.ctime().try_into().expect("must be positive"))
+                + Duration::from_nanos(fs.ctime_nsec().try_into().expect("must be positive")),
+            accessed: SystemTime::UNIX_EPOCH
+                + Duration::from_secs(fs.atime().try_into().expect("must be positive"))
+                + Duration::from_nanos(fs.atime_nsec().try_into().expect("must be positive")),
+            modified: SystemTime::UNIX_EPOCH
+                + Duration::from_secs(fs.mtime().try_into().expect("must be positive"))
+                + Duration::from_nanos(fs.mtime_nsec().try_into().expect("must be positive")),
         }
     }
 }
@@ -174,6 +216,31 @@ impl Directory {
 impl DirectoryBuilder {
     pub fn build(&mut self) -> Directory {
         self.fallible_build().expect("infallible")
+    }
+}
+
+/// A special file (device node, socket, fifo, etc)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Special {
+    /// Special file type
+    file_type: SFlag,
+    metadata: Metadata,
+}
+
+impl Special {
+    pub fn new(file_type: SFlag, metadata: Metadata) -> Self {
+        Self {
+            file_type,
+            metadata,
+        }
+    }
+
+    pub fn file_type(&self) -> SFlag {
+        self.file_type
+    }
+
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 }
 

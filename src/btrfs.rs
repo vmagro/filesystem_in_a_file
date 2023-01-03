@@ -46,18 +46,27 @@ impl Subvols {
         Self(BTreeMap::new())
     }
 
+    #[remain::check]
     fn apply_cmd(subvol: &mut Subvol, cmd: &Command<'_>) -> crate::Result<()> {
+        #[remain::sorted]
         match cmd {
             Command::Chmod(c) => subvol.fs.chmod(c.path(), c.mode().mode()),
+            Command::Chown(c) => subvol.fs.chown(c.path(), c.uid(), c.gid()),
             Command::Mkdir(m) => {
                 subvol.fs.insert(m.path().as_path(), Directory::default());
                 Ok(())
+            }
+            Command::Mkfifo(m) => {
+                todo!("{:?}", m);
             }
             Command::Mkfile(m) => {
                 subvol.fs.insert(m.path().as_path(), File::default());
                 Ok(())
             }
             Command::Rename(r) => subvol.fs.rename(r.from(), r.to()),
+            Command::Utimes(u) => subvol
+                .fs
+                .set_times(u.path(), *u.ctime(), *u.atime(), *u.mtime()),
             _ => {
                 eprintln!("unimplemented command: {:?}", cmd);
                 Ok(())
@@ -68,15 +77,11 @@ impl Subvols {
     /// Parse subvolumes from an uncompressed sendstream
     pub fn receive<'f>(&mut self, sendstream: Sendstream<'f>) -> Result<(), Error<'f>> {
         let mut cmd_iter = sendstream.into_commands().into_iter();
-        let (subvol_uuid, mut subvol) = match cmd_iter
+        let (subvol_uuid, mut subvol) = #[remain::sorted]
+        match cmd_iter
             .next()
             .expect("must have at least one command")
         {
-            Command::Subvol(s) => {
-                let mut subvol = Subvol::new();
-                subvol.fs.insert("", Directory::default());
-                (s.uuid(), subvol)
-            }
             Command::Snapshot(s) => {
                 let mut subvol = self
                     .0
@@ -84,6 +89,11 @@ impl Subvols {
                     .ok_or(Error::MissingParent(s.clone_uuid()))?
                     .clone();
                 subvol.parent_uuid = Some(s.clone_uuid());
+                (s.uuid(), subvol)
+            }
+            Command::Subvol(s) => {
+                let mut subvol = Subvol::new();
+                subvol.fs.insert("", Directory::default());
                 (s.uuid(), subvol)
             }
             _ => return Err(Error::InvariantViolated("first command was not subvol start").into()),

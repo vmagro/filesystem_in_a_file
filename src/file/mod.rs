@@ -112,10 +112,6 @@ impl File {
 
 #[cfg(test)]
 pub(self) mod tests {
-    use nix::sys::stat::Mode;
-    use nix::unistd::Gid;
-    use nix::unistd::Uid;
-
     use super::*;
 
     pub(crate) fn test_file() -> File {
@@ -124,12 +120,7 @@ pub(self) mod tests {
                 (0, "Lorem ipsum".into()),
                 ("Lorem ipsum".len() as u64, " dolor sit amet".into()),
             ]),
-            metadata: Metadata {
-                mode: Mode::from_bits_truncate(0o444),
-                uid: Uid::from_raw(0),
-                gid: Gid::from_raw(0),
-                xattrs: BTreeMap::new(),
-            },
+            metadata: Default::default(),
         }
     }
 

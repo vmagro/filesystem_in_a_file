@@ -3,6 +3,8 @@ use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
+use nix::sys::stat::SFlag;
+
 use crate::Entry;
 use crate::Filesystem;
 
@@ -12,6 +14,7 @@ impl Filesystem {
     pub fn materialize_to(&self, dir: &Path) -> std::io::Result<()> {
         for (path, entry) in self {
             let dst_path = dir.join(path);
+            #[remain::sorted]
             match entry {
                 Entry::Directory(_) => {
                     // Do not create top-level directory, but still let the
@@ -23,6 +26,13 @@ impl Filesystem {
                 Entry::File(f) => {
                     let mut dst_f = std::fs::File::create(&dst_path)?;
                     dst_f.write_all(&f.to_bytes())?;
+                }
+                Entry::Special(s) => {
+                    if s.file_type().contains(SFlag::S_IFIFO) {
+                        nix::unistd::mkfifo(&dst_path, s.metadata().mode)?;
+                    } else {
+                        todo!("{s:?}");
+                    }
                 }
                 Entry::Symlink(s) => {
                     std::os::unix::fs::symlink(s.target(), &dst_path)?;
