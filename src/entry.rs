@@ -262,13 +262,15 @@ impl ApproxEq for Directory {
 pub struct Special {
     /// Special file type
     file_type: SFlag,
+    rdev: u64,
     metadata: Metadata,
 }
 
 impl Special {
-    pub fn new(file_type: SFlag, metadata: Metadata) -> Self {
+    pub fn new(file_type: SFlag, rdev: u64, metadata: Metadata) -> Self {
         Self {
             file_type,
+            rdev,
             metadata,
         }
     }
@@ -288,10 +290,14 @@ impl ApproxEq for Special {
         let Self {
             file_type,
             metadata,
+            rdev,
         } = self;
         let mut f = metadata.cmp(&other.metadata);
         if *file_type != other.file_type {
             f.remove(Fields::TYPE);
+        }
+        if *rdev != other.rdev {
+            f.remove(Fields::RDEV);
         }
         f
     }

@@ -89,7 +89,7 @@ impl Subvols {
             Command::Mkfifo(ref m) => {
                 subvol.fs.insert(
                     m.path().as_path(),
-                    Special::new(m.mode().file_type(), Default::default()),
+                    Special::new(m.mode().file_type(), *m.rdev(), Default::default()),
                 );
                 Ok(())
             }
@@ -97,10 +97,17 @@ impl Subvols {
                 subvol.fs.insert(m.path().as_path(), File::default());
                 Ok(())
             }
-            Command::Mksock(ref m) => {
+            Command::Mknod(m) => {
                 subvol.fs.insert(
                     m.path().as_path(),
-                    Special::new(m.mode().file_type(), Default::default()),
+                    Special::new(m.mode().file_type(), *m.rdev(), Default::default()),
+                );
+                Ok(())
+            }
+            Command::Mksock(m) => {
+                subvol.fs.insert(
+                    m.path().as_path(),
+                    Special::new(m.mode().file_type(), *m.rdev(), Default::default()),
                 );
                 Ok(())
             }
@@ -132,9 +139,6 @@ impl Subvols {
                 }
                 _ => Err(crate::Error::WrongEntryType),
             },
-            _ => {
-                todo!("unimplemented command: {:?}", cmd);
-            }
         }
     }
 

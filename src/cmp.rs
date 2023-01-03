@@ -21,6 +21,8 @@ bitflags! {
         const MODE      = 0b1000000;
         /// Owning user/group
         const OWNER     = 0b10000000;
+        /// Device number (st_rdev)
+        const RDEV      = 0b100000000;
         /// Metadata accessible with stat(2)
         const STAT      = Self::TYPE.bits | Self::TIME.bits | Self::MODE.bits | Self::OWNER.bits;
     }
