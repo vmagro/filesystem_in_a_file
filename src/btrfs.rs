@@ -190,13 +190,15 @@ impl Subvols {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use std::path::Path;
 
     use bytes::Bytes;
     use pretty_assertions::assert_eq;
-    use uuid::uuid;
 
     use super::*;
+    use crate::cmp::assert_approx_eq;
+    use crate::cmp::Fields;
     use crate::tests::demo_fs;
 
     #[test]
@@ -212,24 +214,27 @@ mod tests {
                 .receive(sendstream)
                 .expect("failed to receive sendstream");
         }
+        // drop the uuid which will change on every build and re-order so that
+        // the parent is always first
+        let uuids: HashSet<Uuid> = subvols.0.keys().map(|u| *u).collect();
+        let mut subvols: Vec<_> = subvols.0.into_values().collect();
+        assert_eq!(2, subvols.len());
+        subvols.sort_by_key(|s| s.parent_uuid);
+        let parent_uuid = subvols[1].parent_uuid.unwrap();
+        assert!(uuids.contains(&parent_uuid));
+        assert_approx_eq!(demo_fs(), &subvols[0].fs, Fields::all() - Fields::TIME);
         assert_eq!(
-            BTreeMap::from([
-                (
-                    uuid!("0fbf2b5f-ff82-a748-8b41-e35aec190b49"),
-                    Subvol {
-                        parent_uuid: None,
-                        fs: demo_fs(),
-                    }
-                ),
-                (
-                    uuid!("ed2c87d3-12e3-c549-a699-635de66d6f35"),
-                    Subvol {
-                        parent_uuid: Some(uuid!("0fbf2b5f-ff82-a748-8b41-e35aec190b49")),
-                        fs: demo_fs(),
-                    }
-                )
-            ]),
-            subvols.0
+            vec![
+                Subvol {
+                    parent_uuid: None,
+                    fs: demo_fs(),
+                },
+                Subvol {
+                    parent_uuid: Some(parent_uuid),
+                    fs: demo_fs(),
+                }
+            ],
+            subvols
         );
     }
 }

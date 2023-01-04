@@ -61,13 +61,18 @@ macro_rules! assert_approx_eq {
     ($left:expr, $right:expr, $fields:expr) => {
         let cmp = crate::cmp::ApproxEq::cmp(&$left, &$right);
         let cmp = cmp | $fields.complement();
-        assert!(
-            cmp.is_all(),
-            "{:?} != {:?}. These attributes are not equal: {:?}",
-            $left,
-            $right,
-            cmp.complement(),
-        );
+        if !cmp.is_all() {
+            panic!(
+                "These attributes are causing the test failure: {:?}\nThere may be other differences that appear here, that is ok.\n{}",
+                cmp.complement(),
+                similar_asserts::SimpleDiff::from_str(
+                    &format!("{:#?}", $left),
+                    &format!("{:#?}", $right),
+                    stringify!($left),
+                    stringify!($right),
+                )
+            );
+        }
     };
     ($left:expr, $right:expr, $fields:expr, $($arg:tt)+) => {
         assert!(

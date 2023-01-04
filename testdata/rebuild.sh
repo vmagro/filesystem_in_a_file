@@ -4,9 +4,19 @@ set -ex
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 pushd "$OUT_DIR"
 
+SUDO_ASKPASS=/bin/false sudo true
+CAN_MAKE_BTRFS="$?"
+
 # produce the demo filesystem
-rm -rf fs
-mkdir fs
+if [ "$CAN_MAKE_BTRFS" -eq "0" ]; then
+    sudo btrfs subvolume delete fs || true
+    sudo btrfs subvolume delete fs2 || true
+    btrfs subvolume create fs
+    sudo chown -R "$(whoami)" fs
+else
+    rm -rf fs
+    mkdir fs
+fi
 pushd fs
 mkdir testdata
 echo "Lorem ipsum" > testdata/lorem.txt
@@ -18,8 +28,21 @@ ln -s ../lorem.txt testdata/dir/symlink
 tar --xattrs -cf "$OUT_DIR"/testdata.tar testdata
 find testdata | cpio -o -H newc > "$OUT_DIR"/testdata.cpio
 
-# TODO: build the sendstream in this script instead of just copying it
-cp --reflink=auto "$SCRIPT_DIR/demo.sendstream" "$OUT_DIR"/testdata.sendstream
-
 popd
+if [ "$CAN_MAKE_BTRFS" -eq "0" ]; then
+    sudo btrfs property set fs ro true
+    sudo btrfs subvolume snapshot fs fs2
+    sudo btrfs property set fs2 ro false
+    touch fs2/wow
+    sudo btrfs property set fs2 ro true
+    sudo btrfs send fs -e -f "$OUT_DIR"/testdata.sendstream.1
+    sudo btrfs send -p fs fs2 -f "$OUT_DIR"/testdata.sendstream.2
+    sudo btrfs subvolume delete fs2
+    sudo cat "$OUT_DIR"/testdata.sendstream.1 "$OUT_DIR"/testdata.sendstream.2 > "$OUT_DIR"/testdata.sendstream
+    sudo rm "$OUT_DIR"/testdata.sendstream.1 "$OUT_DIR"/testdata.sendstream.2
+    sudo chown "$(whoami)" "$OUT_DIR"/testdata.sendstream
+else
+    cp --reflink=auto "$SCRIPT_DIR"/testdata.sendstream "$OUT_DIR"/testdata.sendstream
+fi
+
 popd
