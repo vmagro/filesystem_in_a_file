@@ -313,9 +313,14 @@ pub struct Symlink {
 
 impl Symlink {
     pub fn new(target: impl Into<BytesPath>, metadata: Option<Metadata>) -> Self {
+        let metadata = metadata.unwrap_or_else(|| {
+            Metadata::builder()
+                .mode(Mode::from_bits_truncate(0o777))
+                .build()
+        });
         Self {
             target: target.into(),
-            metadata: metadata.unwrap_or_default(),
+            metadata,
         }
     }
 
