@@ -194,11 +194,14 @@ mod tests {
     use std::path::Path;
 
     use bytes::Bytes;
-    use pretty_assertions::assert_eq;
+    use nix::sys::stat::Mode;
+    use nix::unistd::Gid;
+    use nix::unistd::Uid;
 
     use super::*;
     use crate::cmp::assert_approx_eq;
     use crate::cmp::Fields;
+    use crate::entry::Metadata;
     use crate::tests::demo_fs;
 
     #[test]
@@ -223,18 +226,20 @@ mod tests {
         let parent_uuid = subvols[1].parent_uuid.unwrap();
         assert!(uuids.contains(&parent_uuid));
         assert_approx_eq!(demo_fs(), &subvols[0].fs, Fields::all() - Fields::TIME);
-        assert_eq!(
-            vec![
-                Subvol {
-                    parent_uuid: None,
-                    fs: demo_fs(),
-                },
-                Subvol {
-                    parent_uuid: Some(parent_uuid),
-                    fs: demo_fs(),
-                }
-            ],
-            subvols
+        // the second subvol has some differences compared to the demo fs
+        let mut demo2 = demo_fs();
+        demo2.insert(
+            "wow",
+            File::builder()
+                .metadata(
+                    Metadata::builder()
+                        .mode(Mode::from_bits_truncate(0o644))
+                        .uid(Uid::current())
+                        .gid(Gid::current())
+                        .build(),
+                )
+                .build(),
         );
+        assert_approx_eq!(demo2, &subvols[1].fs, Fields::all() - Fields::TIME);
     }
 }
