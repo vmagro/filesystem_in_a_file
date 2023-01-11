@@ -9,10 +9,13 @@ CAN_MAKE_BTRFS="$?"
 
 # produce the demo filesystem
 if [ "$CAN_MAKE_BTRFS" -eq "0" ]; then
-    sudo btrfs subvolume delete fs || true
-    sudo btrfs subvolume delete fs2 || true
-    btrfs subvolume create fs
-    sudo chown -R "$(whoami)" fs
+    truncate -s 1G image.btrfs
+    mkfs.btrfs -f image.btrfs
+    mkdir mnt
+    sudo mount image.btrfs mnt
+    sudo chown -R "$(whoami)" mnt
+    btrfs subvolume create mnt/fs
+    pushd mnt
 else
     rm -rf fs
     mkdir fs
@@ -37,7 +40,10 @@ if [ "$CAN_MAKE_BTRFS" -eq "0" ]; then
     sudo btrfs property set fs2 ro true
     sudo btrfs send fs -e -f "$OUT_DIR"/testdata.sendstream.1
     sudo btrfs send -p fs fs2 -f "$OUT_DIR"/testdata.sendstream.2
-    sudo btrfs subvolume delete fs2
+    popd
+    sudo umount mnt
+    rmdir mnt
+    rm image.btrfs
     sudo cat "$OUT_DIR"/testdata.sendstream.1 "$OUT_DIR"/testdata.sendstream.2 > "$OUT_DIR"/testdata.sendstream
     sudo rm "$OUT_DIR"/testdata.sendstream.1 "$OUT_DIR"/testdata.sendstream.2
     sudo chown "$(whoami)" "$OUT_DIR"/testdata.sendstream
