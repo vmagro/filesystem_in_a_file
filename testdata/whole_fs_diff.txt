@@ -5,10 +5,12 @@ Differences (-left|+right):
 -    mode: S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
 +    mode: S_IRUSR | S_IRGRP | S_IROTH,
      uid: Uid(
-         1000,
+-        0,
++        1000,
      ),
      gid: Gid(
-         1000,
+-        0,
++        1000,
      ),
      xattrs: {},
      created: SystemTime {
@@ -35,12 +37,10 @@ Differences (-left|+right):
  Metadata {
      mode: S_IRWXU | S_IRUSR | S_IWUSR | S_IXUSR | S_IRWXG | S_IRGRP | S_IWGRP | S_IXGRP | S_IRWXO | S_IROTH | S_IWOTH | S_IXOTH,
      uid: Uid(
--        1000,
-+        0,
+         0,
      ),
      gid: Gid(
--        1000,
-+        0,
+         0,
      ),
      xattrs: {},
      created: SystemTime {

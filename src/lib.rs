@@ -31,8 +31,6 @@ mod bytes_ext;
 pub mod cmp;
 #[cfg(feature = "diff")]
 pub mod diff;
-#[cfg(feature = "dir")]
-mod dir;
 mod entry;
 pub mod file;
 mod iter;
@@ -332,8 +330,8 @@ pub(crate) mod tests {
                     .metadata(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o755))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(0))
+                            .gid(Gid::from_raw(0))
                             .build(),
                     )
                     .build()
@@ -345,8 +343,8 @@ pub(crate) mod tests {
                     .metadata(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o755))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(0))
+                            .gid(Gid::from_raw(0))
                             .build(),
                     )
                     .build()
@@ -359,8 +357,8 @@ pub(crate) mod tests {
                     .metadata(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o644))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(0))
+                            .gid(Gid::from_raw(0))
                             .xattr("user.demo", "lorem ipsum")
                             .build(),
                     )
@@ -373,8 +371,8 @@ pub(crate) mod tests {
                     .metadata(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o755))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(0))
+                            .gid(Gid::from_raw(0))
                             .build(),
                     )
                     .build()
@@ -387,8 +385,8 @@ pub(crate) mod tests {
                     .metadata(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o644))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(0))
+                            .gid(Gid::from_raw(0))
                             .build(),
                     )
                     .build()
@@ -401,8 +399,8 @@ pub(crate) mod tests {
                     Some(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o777))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(0))
+                            .gid(Gid::from_raw(0))
                             .build(),
                     ),
                 )

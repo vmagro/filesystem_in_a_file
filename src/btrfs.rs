@@ -256,7 +256,6 @@ impl Subvols {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::path::Path;
 
     use bytes::Bytes;
     use nix::sys::stat::Mode;
@@ -271,10 +270,7 @@ mod tests {
 
     #[test]
     fn sendstream() {
-        let contents = Bytes::from(
-            std::fs::read(Path::new(env!("OUT_DIR")).join("testdata.sendstream"))
-                .expect("failed to read testdata.sendstream"),
-        );
+        let contents = Bytes::from_static(include_bytes!("../testdata/testdata.sendstream"));
         let sendstreams = Sendstream::parse_all(&contents).expect("failed to parse sendstream");
         let mut subvols = Subvols::new();
         for sendstream in sendstreams {
@@ -299,8 +295,8 @@ mod tests {
                 .metadata(
                     Metadata::builder()
                         .mode(Mode::from_bits_truncate(0o644))
-                        .uid(Uid::current())
-                        .gid(Gid::current())
+                        .uid(Uid::from_raw(0))
+                        .gid(Gid::from_raw(0))
                         .build(),
                 )
                 .build(),

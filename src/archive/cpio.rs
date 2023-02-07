@@ -84,8 +84,6 @@ impl Filesystem {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -109,10 +107,7 @@ mod tests {
 
     #[test]
     fn cpio() {
-        let contents = Bytes::from(
-            std::fs::read(Path::new(env!("OUT_DIR")).join("testdata.cpio"))
-                .expect("failed to read testdata.cpio"),
-        );
+        let contents = Bytes::from_static(include_bytes!("../../testdata/testdata.cpio"));
         let fs = Filesystem::parse_cpio(&contents).expect("failed to parse cpio");
         let mut demo_fs = demo_fs();
         // cpio is missing the top-level directory

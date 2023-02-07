@@ -22,16 +22,14 @@ tar = {version = "0.4", optional = true}
 thiserror = "1"
 twox-hash = {version = "1.6", optional = true}
 uuid = {version = "1.2", optional = true}
-walkdir = {version = "2", optional = true}
 xattr = "1"
 
 [features]
 archive = []
 btrfs = ["dep:memmap", "dep:sendstream_parser", "dep:uuid"]
 cpio = ["archive", "dep:cpio", "dep:memmap"]
-default = ["btrfs", "cpio", "diff", "dir", "tar"]
+default = ["btrfs", "cpio", "diff", "tar"]
 diff = ["dep:console", "dep:similar", "dep:twox-hash"]
-dir = ["dep:walkdir"]
 tar = ["archive", "dep:memmap", "dep:tar"]
 
 [dev-dependencies]

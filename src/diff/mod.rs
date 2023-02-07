@@ -148,8 +148,8 @@ mod tests {
                 .metadata(
                     Metadata::builder()
                         .mode(Mode::from_bits_truncate(0o444))
-                        .uid(Uid::current())
-                        .gid(Gid::current())
+                        .uid(Uid::from_raw(1000))
+                        .gid(Gid::from_raw(1000))
                         .build(),
                 )
                 .build(),

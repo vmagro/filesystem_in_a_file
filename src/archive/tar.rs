@@ -91,8 +91,6 @@ impl Metadata {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use pretty_assertions::assert_eq;
 
     use super::*;
@@ -101,10 +99,7 @@ mod tests {
 
     #[test]
     fn tar() {
-        let contents = Bytes::from(
-            std::fs::read(Path::new(env!("OUT_DIR")).join("testdata.tar"))
-                .expect("failed to read testdata.tar"),
-        );
+        let contents = Bytes::from_static(include_bytes!("../../testdata/testdata.tar"));
         let fs = Filesystem::parse_tar(&contents).expect("failed to parse tar");
         let mut demo_fs = demo_fs();
         // tar is missing the top-level directory
