@@ -13,7 +13,6 @@ use crate::entry::Entry;
 use crate::Filesystem;
 
 mod diffable;
-use diffable::DiffSection;
 use diffable::Diffable;
 
 #[derive(Debug)]
@@ -35,37 +34,22 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (left, right) = match self {
-            Self::Removed(removed) => {
-                let removed = removed.to_diffable_sections();
-                let empty = removed.clone().map(|s| DiffSection {
-                    title: s.title,
-                    contents: Cow::Borrowed(""),
-                });
-                (removed, empty)
-            }
-            Self::Added(added) => {
-                let added = added.to_diffable_sections();
-                let empty = added.clone().map(|s| DiffSection {
-                    title: s.title,
-                    contents: Cow::Borrowed(""),
-                });
-                (empty, added)
-            }
+            Self::Removed(removed) => (
+                removed.to_diffable_sections(),
+                std::array::from_fn(|_| Cow::Borrowed("")),
+            ),
+            Self::Added(added) => (
+                std::array::from_fn(|_| Cow::Borrowed("")),
+                added.to_diffable_sections(),
+            ),
             Self::Changed { left, right } => {
                 (left.to_diffable_sections(), right.to_diffable_sections())
             }
         };
 
-        for (left, right) in left.iter().zip(right.iter()) {
-            writeln!(f, "{}", left.title)?;
-            debug_assert_eq!(left.title, right.title);
-            let diff = unified_diff(
-                Algorithm::Patience,
-                &left.contents,
-                &right.contents,
-                3,
-                None,
-            );
+        for (title, (left, right)) in T::SECTIONS.iter().zip(left.iter().zip(right.iter())) {
+            writeln!(f, "{title}")?;
+            let diff = unified_diff(Algorithm::Patience, &left, &right, 3, None);
             f.write_str(&diff)?;
         }
         Ok(())

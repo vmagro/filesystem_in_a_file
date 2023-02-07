@@ -12,49 +12,39 @@ use crate::entry::Special;
 use crate::entry::Symlink;
 use crate::file::File;
 
-#[derive(Debug, Clone)]
-pub struct DiffSection<'a> {
-    pub(super) title: &'static str,
-    pub(super) contents: Cow<'a, str>,
-}
-
 pub trait Diffable<'a, const N: usize>: Sized + Debug + ApproxEq {
+    const SECTIONS: [&'static str; N];
     /// Return a string representation of this object. Not directly used for
     /// comparison ([ApproxEq] will be used for that), but will be used to
     /// display the diff to the user.
-    fn to_diffable_sections(&'a self) -> [DiffSection<'a>; N];
+    fn to_diffable_sections(&'a self) -> [Cow<'a, str>; N];
 }
 
 impl<'a, T: Diffable<'a, N>, const N: usize> Diffable<'a, N> for &'_ T {
-    fn to_diffable_sections(&'a self) -> [DiffSection<'a>; N] {
+    const SECTIONS: [&'static str; N] = <T as Diffable<'a, N>>::SECTIONS;
+
+    fn to_diffable_sections(&'a self) -> [Cow<'a, str>; N] {
         (**self).to_diffable_sections()
     }
 }
 
 impl<'a> Diffable<'a, 3> for Entry {
-    fn to_diffable_sections(&'a self) -> [DiffSection<'a>; 3] {
+    const SECTIONS: [&'static str; 3] = ["Type", "Metadata", "Contents"];
+
+    fn to_diffable_sections(&'a self) -> [Cow<'a, str>; 3] {
         [
-            DiffSection {
-                title: "Type",
-                contents: Cow::Borrowed(match self {
-                    Self::File(_) => "File",
-                    Self::Directory(_) => "Directory",
-                    Self::Special(_) => "Special",
-                    Self::Symlink(_) => "Symlink",
-                }),
-            },
-            DiffSection {
-                title: "Metadata",
-                contents: Cow::Owned(format!("{:#?}", self.metadata())),
-            },
-            DiffSection {
-                title: "Contents",
-                contents: match self {
-                    Self::File(x) => x.diffable_contents(),
-                    Self::Directory(_) => Cow::Borrowed(""),
-                    Self::Special(x) => Cow::Owned(x.diffable_contents()),
-                    Self::Symlink(x) => Cow::Borrowed(x.diffable_contents()),
-                },
+            Cow::Borrowed(match self {
+                Self::File(_) => "File",
+                Self::Directory(_) => "Directory",
+                Self::Special(_) => "Special",
+                Self::Symlink(_) => "Symlink",
+            }),
+            Cow::Owned(format!("{:#?}", self.metadata())),
+            match self {
+                Self::File(x) => x.diffable_contents(),
+                Self::Directory(_) => Cow::Borrowed(""),
+                Self::Special(x) => Cow::Owned(x.diffable_contents()),
+                Self::Symlink(x) => Cow::Borrowed(x.diffable_contents()),
             },
         ]
     }
