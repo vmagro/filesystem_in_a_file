@@ -3,13 +3,9 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::path::Path;
-use std::time::Duration;
 
-use console::style;
-use console::Style;
+use similar::udiff::unified_diff;
 use similar::Algorithm;
-use similar::ChangeTag;
-use similar::TextDiff;
 
 use crate::cmp::ApproxEq;
 use crate::cmp::Fields;
@@ -17,10 +13,14 @@ use crate::entry::Entry;
 use crate::Filesystem;
 
 mod diffable;
+use diffable::DiffSection;
 use diffable::Diffable;
 
 #[derive(Debug)]
-pub enum Diff<T> {
+pub enum Diff<T, const N: usize>
+where
+    T: for<'a> Diffable<'a, N>,
+{
     /// Right side removed this object that existed in the left side
     Removed(T),
     /// Right side added this object that did not exist in the left side
@@ -29,59 +29,51 @@ pub enum Diff<T> {
     Changed { left: T, right: T },
 }
 
-impl<T> Display for Diff<T>
+impl<T, const N: usize> Display for Diff<T, N>
 where
-    T: Diffable,
+    T: for<'a> Diffable<'a, N>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (left, right) = match self {
-            Self::Removed(removed) => (removed.to_diffable_string(), Cow::Borrowed("")),
-            Self::Added(added) => (Cow::Borrowed(""), added.to_diffable_string()),
+            Self::Removed(removed) => {
+                let removed = removed.to_diffable_sections();
+                let empty = removed.clone().map(|s| DiffSection {
+                    title: s.title,
+                    contents: Cow::Borrowed(""),
+                });
+                (removed, empty)
+            }
+            Self::Added(added) => {
+                let added = added.to_diffable_sections();
+                let empty = added.clone().map(|s| DiffSection {
+                    title: s.title,
+                    contents: Cow::Borrowed(""),
+                });
+                (empty, added)
+            }
             Self::Changed { left, right } => {
-                (left.to_diffable_string(), right.to_diffable_string())
+                (left.to_diffable_sections(), right.to_diffable_sections())
             }
         };
-        let diff = TextDiff::configure()
-            .timeout(Duration::from_millis(200))
-            .algorithm(Algorithm::Patience)
-            .diff_lines(&left, &right);
 
-        writeln!(
-            f,
-            "{} ({}{}|{}{}):",
-            style("Differences").bold(),
-            style("-").red().dim(),
-            style("left").red(),
-            style("+").green().dim(),
-            style("right").green(),
-        )?;
-        for op in diff.ops() {
-            for change in diff.iter_inline_changes(&op) {
-                let (marker, style) = match change.tag() {
-                    ChangeTag::Delete => ('-', Style::new().red()),
-                    ChangeTag::Insert => ('+', Style::new().green()),
-                    ChangeTag::Equal => (' ', Style::new().dim()),
-                };
-                write!(f, "{}", style.apply_to(marker).dim().bold())?;
-                for &(emphasized, value) in change.values() {
-                    if emphasized {
-                        write!(f, "{}", style.clone().underlined().bold().apply_to(value))?;
-                    } else {
-                        write!(f, "{}", style.apply_to(value))?;
-                    }
-                }
-                if change.missing_newline() {
-                    writeln!(f)?;
-                }
-            }
-            // }
+        for (left, right) in left.iter().zip(right.iter()) {
+            writeln!(f, "{}", left.title)?;
+            debug_assert_eq!(left.title, right.title);
+            let diff = unified_diff(
+                Algorithm::Patience,
+                &left.contents,
+                &right.contents,
+                3,
+                None,
+            );
+            f.write_str(&diff)?;
         }
         Ok(())
     }
 }
 
 pub struct FilesystemDiff<'b> {
-    entry_diffs: BTreeMap<&'b Path, Diff<&'b Entry>>,
+    entry_diffs: BTreeMap<&'b Path, Diff<&'b Entry, 3>>,
 }
 
 impl<'b> FilesystemDiff<'b> {
