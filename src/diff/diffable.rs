@@ -135,6 +135,7 @@ mod tests {
             ),
         };
         assert_eq!(
+            diff.to_string(),
             r#"Type
 Metadata
 @@ -1,5 +1,5 @@
@@ -160,7 +161,6 @@ Contents
 +consectetur adipiscing elit
 +dolor sit
 "#,
-            console::strip_ansi_codes(&diff.to_string())
         )
     }
 }

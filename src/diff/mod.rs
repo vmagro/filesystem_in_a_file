@@ -93,7 +93,20 @@ impl<'b> FilesystemDiff<'b> {
 impl<'b> Display for FilesystemDiff<'b> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (path, diff) in &self.entry_diffs {
-            writeln!(f, "Entry at '{}':", path.display())?;
+            match diff {
+                Diff::Added(_) => {
+                    writeln!(f, "--- /dev/null")?;
+                    writeln!(f, "+++ right/{}", path.display())?;
+                }
+                Diff::Removed(_) => {
+                    writeln!(f, "--- left/{}", path.display())?;
+                    writeln!(f, "+++ /dev/null")?;
+                }
+                Diff::Changed { .. } => {
+                    writeln!(f, "---  left/{}", path.display())?;
+                    writeln!(f, "+++ right/{}", path.display())?;
+                }
+            }
             writeln!(f, "{diff}")?;
         }
         Ok(())
@@ -133,7 +146,7 @@ mod tests {
         right.insert("testdata/dir/symlink", Symlink::new("./lorem.txt", None));
         let diff = FilesystemDiff::diff(&left, &right, Fields::all());
         assert_eq!(
-            console::strip_ansi_codes(&diff.to_string()),
+            diff.to_string(),
             include_str!("../../testdata/whole_fs_diff.txt"),
         );
     }
