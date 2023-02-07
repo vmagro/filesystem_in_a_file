@@ -6,6 +6,7 @@
 //! etc) and get a complete picture of the entire FS (or at least the parts that
 //! can be represented in the archive format).
 
+#![feature(io_error_more)]
 #![feature(io_error_other)]
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]
@@ -14,6 +15,9 @@
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::io::Error;
+use std::io::ErrorKind;
+use std::io::Result;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -38,20 +42,6 @@ pub(crate) use bytes_ext::BytesExt;
 pub use entry::Entry;
 use file::File;
 pub use path::BytesPath;
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error("entry does not exist")]
-    NotFound,
-    #[error("directory to be removed is not empty")]
-    NotEmpty,
-    #[error("entry type does not support this use")]
-    WrongEntryType,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
 
 slotmap::new_key_type! { pub struct InodeKey; }
 
@@ -87,7 +77,10 @@ impl Filesystem {
             self.refcounts[key] -= 1;
             Ok(())
         } else {
-            Err(Error::NotFound)
+            Err(Error::new(
+                ErrorKind::NotFound,
+                format!("'{}' not found", path.as_ref().display()),
+            ))
         }
     }
 
@@ -98,7 +91,12 @@ impl Filesystem {
         self.paths
             .get(path.as_ref())
             .and_then(|key| self.inodes.get(*key))
-            .ok_or(Error::NotFound)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::NotFound,
+                    format!("'{}' not found", path.as_ref().display()),
+                )
+            })
     }
 
     pub fn get_mut<P>(&mut self, path: P) -> Result<&mut Entry>
@@ -108,16 +106,24 @@ impl Filesystem {
         self.paths
             .get(path.as_ref())
             .and_then(|key| self.inodes.get_mut(*key))
-            .ok_or(Error::NotFound)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::NotFound,
+                    format!("'{}' not found", path.as_ref().display()),
+                )
+            })
     }
 
     pub fn get_file<P>(&self, path: P) -> Result<&File>
     where
         P: AsRef<Path>,
     {
-        match self.get(path)? {
+        match self.get(path.as_ref())? {
             Entry::File(f) => Ok(f),
-            _ => Err(Error::WrongEntryType),
+            _ => Err(Error::other(format!(
+                "'{}' is not a file",
+                path.as_ref().display()
+            ))),
         }
     }
 
@@ -125,9 +131,12 @@ impl Filesystem {
     where
         P: AsRef<Path>,
     {
-        match self.get_mut(path)? {
+        match self.get_mut(path.as_ref())? {
             Entry::File(f) => Ok(f),
-            _ => Err(Error::WrongEntryType),
+            _ => Err(Error::other(format!(
+                "'{}' is not a file",
+                path.as_ref().display()
+            ))),
         }
     }
 
@@ -152,8 +161,20 @@ impl Filesystem {
         P1: AsRef<Path>,
         P2: Into<BytesPath>,
     {
-        let inode = self.paths.remove(from.as_ref()).ok_or(Error::NotFound)?;
-        self.paths.insert(to.into(), inode);
+        let inode = self.paths.remove(from.as_ref()).ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!("'{}' not found", from.as_ref().display()),
+            )
+        })?;
+        let to = to.into();
+        if self.paths.contains_key(&to) {
+            return Err(Error::new(
+                ErrorKind::AlreadyExists,
+                format!("'{}' already exists", to.display()),
+            ));
+        }
+        self.paths.insert(to, inode);
         Ok(())
     }
 
@@ -181,13 +202,21 @@ impl Filesystem {
         P1: AsRef<Path>,
         P2: Into<BytesPath>,
     {
-        let key = self.paths.get(old.as_ref()).ok_or(Error::NotFound)?;
-        if !self.inodes[*key].is_file() {
-            return Err(Error::WrongEntryType);
+        let key = self.paths.get(old.as_ref()).ok_or_else(|| {
+            Error::new(
+                ErrorKind::NotFound,
+                format!("'{}' not found", old.as_ref().display()),
+            )
+        })?;
+        if !self.inodes[*key].is_directory() {
+            return Err(Error::new(
+                ErrorKind::IsADirectory,
+                "directory cannot be hardlink target",
+            ));
         }
         self.refcounts
             .entry(*key)
-            .ok_or(Error::NotFound)?
+            .expect("refcount impossibly None")
             .and_modify(|r| *r += 1);
         self.paths.insert(new.into(), *key);
         Ok(())
@@ -208,14 +237,20 @@ impl Filesystem {
     {
         let dir = path.as_ref();
         if !self.get(dir)?.is_directory() {
-            return Err(Error::WrongEntryType);
+            return Err(Error::new(
+                ErrorKind::NotADirectory,
+                format!("'{}' is not a directory", dir.display()),
+            ));
         }
         if self
             .paths
             .iter()
             .any(|(p, _)| p.starts_with(dir) && dir != p.as_path())
         {
-            return Err(Error::NotEmpty);
+            return Err(Error::new(
+                ErrorKind::DirectoryNotEmpty,
+                format!("'{}' is not empty", dir.display()),
+            ));
         }
         Ok(())
     }

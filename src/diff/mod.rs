@@ -57,7 +57,7 @@ where
                 writeln!(f, "-{left}")?;
                 writeln!(f, "+{right}")?;
             } else {
-                let diff = unified_diff(Algorithm::Patience, &left, &right, 3, None);
+                let diff = unified_diff(Algorithm::Patience, left, right, 3, None);
                 f.write_str(&diff)?;
             }
         }

@@ -25,17 +25,17 @@ pub enum Error<'c> {
     #[error("failed to apply {command:?}: {error:?}")]
     Apply {
         command: Command<'c>,
-        error: crate::Error,
+        error: std::io::Error,
     },
 }
 
 enum ApplyError<'c> {
-    Apply(crate::Error),
+    Apply(std::io::Error),
     Btrfs(Error<'c>),
 }
 
-impl<'c> From<crate::Error> for ApplyError<'c> {
-    fn from(e: crate::Error) -> Self {
+impl<'c> From<std::io::Error> for ApplyError<'c> {
+    fn from(e: std::io::Error) -> Self {
         Self::Apply(e)
     }
 }
