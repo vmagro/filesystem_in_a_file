@@ -34,7 +34,6 @@ pub mod diff;
 mod entry;
 pub mod file;
 mod iter;
-mod materialize;
 mod path;
 
 pub(crate) use bytes_ext::BytesExt;
@@ -192,7 +191,7 @@ impl Filesystem {
             .entry(*key)
             .ok_or(Error::NotFound)?
             .and_modify(|r| *r += 1);
-        self.paths.insert(new.into(), key.clone());
+        self.paths.insert(new.into(), *key);
         Ok(())
     }
 
@@ -221,6 +220,12 @@ impl Filesystem {
             return Err(Error::NotEmpty);
         }
         Ok(())
+    }
+}
+
+impl Default for Filesystem {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -255,7 +260,9 @@ impl cmp::ApproxEq for Filesystem {
             refcounts: _,
         } = &self;
         let mut f = cmp::Fields::all();
+        #[allow(clippy::mutable_key_type)]
         let self_paths: HashSet<_> = paths.keys().collect();
+        #[allow(clippy::mutable_key_type)]
         let other_paths: HashSet<_> = other.paths.keys().collect();
         if self_paths != other_paths {
             f.remove(cmp::Fields::PATH);

@@ -109,8 +109,8 @@ impl<'b> FilesystemDiff<'b> {
 impl<'b> Display for FilesystemDiff<'b> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (path, diff) in &self.entry_diffs {
-            writeln!(f, "Entry at {}:", path.display())?;
-            writeln!(f, "{}", diff)?;
+            writeln!(f, "Entry at '{}':", path.display())?;
+            writeln!(f, "{diff}")?;
         }
         Ok(())
     }

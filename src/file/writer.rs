@@ -16,7 +16,7 @@ pub struct Writer<'r> {
 impl File {
     /// Open a [Writer] at the end of the file. Use [Seek] to move around if you
     /// want to write somewhere in the middle
-    pub fn writer<'r>(&'r mut self) -> Writer<'r> {
+    pub fn writer(&mut self) -> Writer<'_> {
         Writer {
             pos: self.len(),
             file: self,

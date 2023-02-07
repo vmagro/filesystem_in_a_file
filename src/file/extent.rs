@@ -30,7 +30,7 @@ impl Extent {
 
     pub fn data(&self) -> &[u8] {
         match self {
-            Self::Owned(c) => &c,
+            Self::Owned(c) => c,
             Self::Cloned(c) => &c.data,
             Self::Hole(_) => &[],
         }

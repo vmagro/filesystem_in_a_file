@@ -9,7 +9,7 @@ pub struct Reader<'r> {
 }
 
 impl File {
-    pub fn reader<'r>(&'r self) -> Reader<'r> {
+    pub fn reader(&self) -> Reader<'_> {
         Reader { file: self, pos: 0 }
     }
 }

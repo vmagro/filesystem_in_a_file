@@ -62,7 +62,7 @@ impl File {
 
     /// Copy all of the extents in this file into a single contiguous array of
     /// bytes.
-    pub fn to_bytes<'b>(&'b self) -> Cow<'b, [u8]> {
+    pub fn to_bytes(&self) -> Cow<'_, [u8]> {
         match self.extents.len() {
             0 => Cow::Borrowed(&[]),
             1 => Cow::Borrowed(self.extents[&0].data()),

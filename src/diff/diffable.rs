@@ -8,7 +8,6 @@ use twox_hash::XxHash64;
 
 use crate::cmp::ApproxEq;
 use crate::entry::Entry;
-use crate::entry::Metadata;
 use crate::entry::Special;
 use crate::entry::Symlink;
 use crate::file::File;
@@ -112,6 +111,7 @@ mod tests {
 
     use super::*;
     use crate::diff::Diff;
+    use crate::entry::Metadata;
     use crate::File;
 
     #[test]

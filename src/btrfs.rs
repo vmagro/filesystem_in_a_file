@@ -197,27 +197,29 @@ impl Subvols {
     /// Parse subvolumes from an uncompressed sendstream
     pub fn receive<'f>(&mut self, sendstream: Sendstream<'f>) -> Result<(), Error<'f>> {
         let mut cmd_iter = sendstream.into_commands().into_iter();
-        let (mut subvol_uuid, mut subvol) = #[remain::sorted]
-        match cmd_iter
-            .next()
-            .expect("must have at least one command")
-        {
-            Command::Snapshot(s) => {
-                let mut subvol = self
-                    .0
-                    .get(&s.clone_uuid())
-                    .ok_or(Error::MissingParent(s.clone_uuid()))?
-                    .clone();
-                subvol.parent_uuid = Some(s.clone_uuid());
-                (s.uuid(), subvol)
-            }
-            Command::Subvol(s) => {
-                let mut subvol = Subvol::new();
-                subvol.fs.insert("", Directory::default());
-                (s.uuid(), subvol)
-            }
-            _ => return Err(Error::InvariantViolated("first command was not subvol start").into()),
-        };
+        let (mut subvol_uuid, mut subvol) =
+            #[remain::sorted]
+            match cmd_iter.next().expect("must have at least one command") {
+                Command::Snapshot(s) => {
+                    let mut subvol = self
+                        .0
+                        .get(&s.clone_uuid())
+                        .ok_or(Error::MissingParent(s.clone_uuid()))?
+                        .clone();
+                    subvol.parent_uuid = Some(s.clone_uuid());
+                    (s.uuid(), subvol)
+                }
+                Command::Subvol(s) => {
+                    let mut subvol = Subvol::new();
+                    subvol.fs.insert("", Directory::default());
+                    (s.uuid(), subvol)
+                }
+                _ => {
+                    return Err(Error::InvariantViolated(
+                        "first command was not subvol start",
+                    ))
+                }
+            };
         for cmd in cmd_iter {
             match &cmd {
                 Command::Snapshot(s) => {
@@ -250,6 +252,12 @@ impl Subvols {
         }
         self.0.insert(subvol_uuid, subvol);
         Ok(())
+    }
+}
+
+impl Default for Subvols {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

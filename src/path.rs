@@ -25,7 +25,7 @@ impl BytesPath {
     }
 
     pub fn as_path(&self) -> &Path {
-        &self
+        self
     }
 }
 
@@ -90,13 +90,13 @@ impl From<PathBuf> for BytesPath {
 
 impl Borrow<Path> for BytesPath {
     fn borrow(&self) -> &Path {
-        &self
+        self
     }
 }
 
 impl Borrow<Path> for &BytesPath {
     fn borrow(&self) -> &Path {
-        &self
+        self
     }
 }
 
