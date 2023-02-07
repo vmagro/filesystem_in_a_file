@@ -14,13 +14,13 @@ use getset::Getters;
 use nix::sys::stat::FileStat;
 use nix::sys::stat::Mode;
 use nix::sys::stat::SFlag;
-use nix::unistd::Gid;
-use nix::unistd::Uid;
 
 use crate::cmp::ApproxEq;
 use crate::cmp::Fields;
 use crate::BytesPath;
 use crate::File;
+use crate::Gid;
+use crate::Uid;
 
 /// A single directory entry in the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq, From, IsVariant)]

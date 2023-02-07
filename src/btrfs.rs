@@ -81,7 +81,7 @@ impl Subvols {
                 Ok(())
             }
             Command::Chown(c) => {
-                subvol.fs.chown(c.path(), c.uid(), c.gid())?;
+                subvol.fs.chown(c.path(), c.uid().into(), c.gid().into())?;
                 Ok(())
             }
             Command::Clone(c) => {
@@ -267,14 +267,14 @@ mod tests {
 
     use bytes::Bytes;
     use nix::sys::stat::Mode;
-    use nix::unistd::Gid;
-    use nix::unistd::Uid;
 
     use super::*;
     use crate::cmp::assert_approx_eq;
     use crate::cmp::Fields;
     use crate::entry::Metadata;
     use crate::tests::demo_fs;
+    use crate::Gid;
+    use crate::Uid;
 
     #[test]
     fn sendstream() {

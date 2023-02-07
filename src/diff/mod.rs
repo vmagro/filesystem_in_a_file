@@ -116,8 +116,6 @@ impl<'b> Display for FilesystemDiff<'b> {
 #[cfg(test)]
 mod tests {
     use nix::sys::stat::Mode;
-    use nix::unistd::Gid;
-    use nix::unistd::Uid;
     use similar_asserts::assert_eq;
 
     use super::*;
@@ -125,6 +123,8 @@ mod tests {
     use crate::entry::Symlink;
     use crate::tests::demo_fs;
     use crate::File;
+    use crate::Gid;
+    use crate::Uid;
 
     #[test]
     fn whole_fs_diff_is_useful() {
@@ -133,7 +133,7 @@ mod tests {
         right.insert(
             "testdata/dir/lorem.txt",
             File::builder()
-                .contents("Lorem ipsum consectetur adipiscing elit,\nsed do eiusmod")
+                .contents("Lorem ipsum consectetur adipiscing elit,\nsed do eiusmod\n")
                 .metadata(
                     Metadata::builder()
                         .mode(Mode::from_bits_truncate(0o444))

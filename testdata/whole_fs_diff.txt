@@ -2,26 +2,22 @@
 +++ right/testdata/dir/lorem.txt
 Type
 Metadata
-@@ -1,10 +1,10 @@
+@@ -1,7 +1,7 @@
  Metadata {
 -    mode: S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+-    uid: Uid(0),
+-    gid: Gid(0),
 +    mode: S_IRUSR | S_IRGRP | S_IROTH,
-     uid: Uid(
--        0,
-+        1000,
-     ),
-     gid: Gid(
--        0,
-+        1000,
-     ),
++    uid: Uid(1000),
++    gid: Gid(1000),
      xattrs: {},
      created: SystemTime {
+         tv_sec: 0,
 Contents
 @@ -1 +1,2 @@
 -Lorem ipsum dolor sit amet
 +Lorem ipsum consectetur adipiscing elit,
 +sed do eiusmod
-\ No newline at end of file
 
 ---  left/testdata/dir/symlink
 +++ right/testdata/dir/symlink

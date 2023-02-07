@@ -3,8 +3,6 @@ use std::io::Cursor;
 use bytes::Bytes;
 use nix::sys::stat::Mode;
 use nix::sys::stat::SFlag;
-use nix::unistd::Gid;
-use nix::unistd::Uid;
 
 use crate::entry::Directory;
 use crate::entry::Metadata;
@@ -12,6 +10,8 @@ use crate::entry::Symlink;
 use crate::BytesExt;
 use crate::File;
 use crate::Filesystem;
+use crate::Gid;
+use crate::Uid;
 
 const HEADER_LEN: usize = 110;
 

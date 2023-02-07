@@ -4,8 +4,6 @@ use std::io::Read;
 
 use bytes::Bytes;
 use nix::sys::stat::Mode;
-use nix::unistd::Gid;
-use nix::unistd::Uid;
 use tar::Archive;
 use tar::EntryType;
 
@@ -16,6 +14,8 @@ use crate::BytesExt;
 use crate::BytesPath;
 use crate::File;
 use crate::Filesystem;
+use crate::Gid;
+use crate::Uid;
 
 // See https://www.gnu.org/software/tar/manual/html_node/Standard.html for some
 // of the offsets used here to get borrows to the underlying slice

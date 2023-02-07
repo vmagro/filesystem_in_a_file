@@ -95,14 +95,14 @@ impl Symlink {
 #[cfg(test)]
 mod tests {
     use nix::sys::stat::Mode;
-    use nix::unistd::Gid;
-    use nix::unistd::Uid;
     use similar_asserts::assert_eq;
 
     use super::*;
     use crate::diff::Diff;
     use crate::entry::Metadata;
     use crate::File;
+    use crate::Gid;
+    use crate::Uid;
 
     #[test]
     fn text_file_entry_diff_is_useful() {
@@ -113,8 +113,8 @@ mod tests {
                     .metadata(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o644))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(1000))
+                            .gid(Gid::from_raw(1000))
                             .xattr("user.demo", "lorem ipsum")
                             .build(),
                     )
@@ -126,8 +126,8 @@ mod tests {
                     .metadata(
                         Metadata::builder()
                             .mode(Mode::from_bits_truncate(0o444))
-                            .uid(Uid::current())
-                            .gid(Gid::current())
+                            .uid(Uid::from_raw(1000))
+                            .gid(Gid::from_raw(1000))
                             .xattr("user.demo", "dolor")
                             .build(),
                     )
@@ -138,16 +138,12 @@ mod tests {
             diff.to_string(),
             r#"Type
 Metadata
-@@ -1,5 +1,5 @@
+@@ -1,9 +1,9 @@
  Metadata {
 -    mode: S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
 +    mode: S_IRUSR | S_IRGRP | S_IROTH,
-     uid: Uid(
-         1000,
-     ),
-@@ -7,7 +7,7 @@
-         1000,
-     ),
+     uid: Uid(1000),
+     gid: Gid(1000),
      xattrs: {
 -        b"user.demo": b"lorem ipsum",
 +        b"user.demo": b"dolor",

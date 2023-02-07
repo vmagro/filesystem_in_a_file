@@ -18,8 +18,6 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use nix::sys::stat::Mode;
-use nix::unistd::Gid;
-use nix::unistd::Uid;
 use slotmap::SecondaryMap;
 use slotmap::SlotMap;
 
@@ -312,6 +310,59 @@ impl Debug for Filesystem {
     }
 }
 
+macro_rules! id_type {
+    ($i:ident, $nix:ty) => {
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[repr(transparent)]
+        pub struct $i(u32);
+
+        impl $i {
+            pub fn from_raw(id: u32) -> Self {
+                Self(id)
+            }
+
+            pub fn as_u32(&self) -> u32 {
+                self.0
+            }
+        }
+
+        impl From<u32> for $i {
+            fn from(id: u32) -> Self {
+                Self(id)
+            }
+        }
+
+        impl From<$nix> for $i {
+            fn from(id: $nix) -> Self {
+                Self(id.as_raw())
+            }
+        }
+
+        impl AsRef<u32> for $i {
+            fn as_ref(&self) -> &u32 {
+                self
+            }
+        }
+
+        impl std::ops::Deref for $i {
+            type Target = u32;
+
+            fn deref(&self) -> &u32 {
+                &self.0
+            }
+        }
+
+        impl std::fmt::Debug for $i {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{}({})", stringify!($i), self.0)
+            }
+        }
+    };
+}
+
+id_type!(Uid, nix::unistd::Uid);
+id_type!(Gid, nix::unistd::Gid);
+
 mod __private {
     pub trait Sealed {}
 }
@@ -319,8 +370,6 @@ mod __private {
 #[cfg(test)]
 pub(crate) mod tests {
     use nix::sys::stat::Mode;
-    use nix::unistd::Gid;
-    use nix::unistd::Uid;
     use pretty_assertions::assert_eq;
 
     use super::*;
