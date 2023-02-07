@@ -5,8 +5,7 @@
 # filesystem_in_a_file
 
 A complete view of a filesystem provided by various archive formats. Currently
-this crate supports BTRFS Sendstreams, tarballs, cpio archives and plain-old
-directories.
+this crate supports BTRFS Sendstreams, tarballs, and cpio archives.
 
 The intended use case is to use this in-memory representation to enable
 full-filesystem comparisons during integration tests for image packaging tools.
