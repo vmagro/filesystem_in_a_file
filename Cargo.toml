@@ -1,6 +1,9 @@
 [package]
+description = "In-memory FS representation for testing image builders"
 edition = "2021"
+license-file = "LICENSE"
 name = "filesystem_in_a_file"
+repository = "https://github.com/vmagro/filesystem_in_a_file"
 version = "0.0.1"
 
 [dependencies]
