@@ -1,6 +1,5 @@
 ---  left/testdata/dir/lorem.txt
 +++ right/testdata/dir/lorem.txt
-Type
 Metadata
 @@ -1,7 +1,7 @@
  Metadata {
@@ -21,12 +20,6 @@ Contents
 
 ---  left/testdata/dir/symlink
 +++ right/testdata/dir/symlink
-Type
-Metadata
 Contents
-@@ -1 +1 @@
 -../lorem.txt
-\ No newline at end of file
 +./lorem.txt
-\ No newline at end of file
-

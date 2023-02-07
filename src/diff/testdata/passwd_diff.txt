@@ -1,0 +1,8 @@
+---  left/etc/passwd
++++ right/etc/passwd
+Contents
+@@ -26,3 +26,4 @@
+ sddm:x:967:967:Simple Desktop Display Manager:/var/lib/sddm:/usr/bin/nologin
+ usbmux:x:140:140:usbmux user:/:/usr/bin/nologin
+ named:x:40:40:BIND DNS Server:/:/usr/bin/nologin
++vmagro:x:1000:1000::/home/vmagro:/usr/bin/zsh

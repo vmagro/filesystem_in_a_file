@@ -136,8 +136,7 @@ mod tests {
         };
         assert_eq!(
             diff.to_string(),
-            r#"Type
-Metadata
+            r#"Metadata
 @@ -1,9 +1,9 @@
  Metadata {
 -    mode: S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,

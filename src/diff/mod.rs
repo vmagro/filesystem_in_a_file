@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::Write;
 use std::path::Path;
 
 use similar::udiff::unified_diff;
@@ -48,9 +49,17 @@ where
         };
 
         for (title, (left, right)) in T::SECTIONS.iter().zip(left.iter().zip(right.iter())) {
+            if left == right {
+                continue;
+            }
             writeln!(f, "{title}")?;
-            let diff = unified_diff(Algorithm::Patience, &left, &right, 3, None);
-            f.write_str(&diff)?;
+            if left.matches('\n').count() <= 1 && right.matches('\n').count() <= 1 {
+                writeln!(f, "-{left}")?;
+                writeln!(f, "+{right}")?;
+            } else {
+                let diff = unified_diff(Algorithm::Patience, &left, &right, 3, None);
+                f.write_str(&diff)?;
+            }
         }
         Ok(())
     }
@@ -92,7 +101,8 @@ impl<'b> FilesystemDiff<'b> {
 
 impl<'b> Display for FilesystemDiff<'b> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (path, diff) in &self.entry_diffs {
+        let mut iter = self.entry_diffs.iter().peekable();
+        while let Some((path, diff)) = iter.next() {
             match diff {
                 Diff::Added(_) => {
                     writeln!(f, "--- /dev/null")?;
@@ -107,7 +117,10 @@ impl<'b> Display for FilesystemDiff<'b> {
                     writeln!(f, "+++ right/{}", path.display())?;
                 }
             }
-            writeln!(f, "{diff}")?;
+            writeln!(f, "{}", diff.to_string().trim_end_matches('\n'))?;
+            if iter.peek().is_some() {
+                f.write_char('\n')?;
+            }
         }
         Ok(())
     }
@@ -145,9 +158,26 @@ mod tests {
         );
         right.insert("testdata/dir/symlink", Symlink::new("./lorem.txt", None));
         let diff = FilesystemDiff::diff(&left, &right, Fields::all());
-        assert_eq!(
-            diff.to_string(),
-            include_str!("../../testdata/whole_fs_diff.txt"),
+        assert_eq!(diff.to_string(), include_str!("testdata/whole_fs_diff.txt"),);
+    }
+
+    #[test]
+    fn simple_image_feature_diff() {
+        let mut left = demo_fs();
+        left.insert(
+            "etc/passwd",
+            File::builder()
+                .contents(include_str!("testdata/passwd.before"))
+                .build(),
         );
+        let mut right = left.clone();
+        right.insert(
+            "etc/passwd",
+            File::builder()
+                .contents(include_str!("testdata/passwd.after"))
+                .build(),
+        );
+        let diff = FilesystemDiff::diff(&left, &right, Fields::all());
+        assert_eq!(diff.to_string(), include_str!("testdata/passwd_diff.txt"),);
     }
 }
