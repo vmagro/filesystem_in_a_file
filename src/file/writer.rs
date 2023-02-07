@@ -91,7 +91,7 @@ mod tests {
         let mut w = f.writer();
         w.write("Lorem ipsum");
         w.write(" dolor sit amet");
-        assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet");
+        assert_eq!(f.to_bytes().as_ref(), b"Lorem ipsum dolor sit amet");
         assert_eq!(f.extents.len(), 2);
     }
 
@@ -103,7 +103,7 @@ mod tests {
         w.seek(SeekFrom::Start("Lorem ".len() as u64))
             .expect("infallible");
         w.write("ipsum dolor sit amet");
-        assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet");
+        assert_eq!(f.to_bytes().as_ref(), b"Lorem ipsum dolor sit amet");
         assert_eq!(f.extents.len(), 2);
         assert_eq!(
             &f.extents,

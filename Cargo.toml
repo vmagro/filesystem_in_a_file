@@ -7,6 +7,7 @@ version = "0.1.0"
 anyhow = "1"
 bitflags = "1.3"
 bytes = "1.3"
+console = {version = "0.15", optional = true}
 cpio = {version = "0.2", optional = true}
 derive_builder = "0.12"
 derive_more = "0.99"
@@ -15,9 +16,11 @@ memmap = {version = "0.7", optional = true}
 nix = "0.26"
 remain = "0.2"
 sendstream_parser = {version = "0.2.2", optional = true}
+similar = {version = "2.2", optional = true}
 slotmap = "1.0"
 tar = {version = "0.4", optional = true}
 thiserror = "1"
+twox-hash = {version = "1.6", optional = true}
 uuid = {version = "1.2", optional = true}
 walkdir = {version = "2", optional = true}
 xattr = "1"
@@ -26,7 +29,8 @@ xattr = "1"
 archive = []
 btrfs = ["dep:memmap", "dep:sendstream_parser", "dep:uuid"]
 cpio = ["archive", "dep:cpio", "dep:memmap"]
-default = ["btrfs", "cpio", "dir", "tar"]
+default = ["btrfs", "cpio", "diff", "dir", "tar"]
+diff = ["dep:console", "dep:similar", "dep:twox-hash"]
 dir = ["dep:walkdir"]
 tar = ["archive", "dep:memmap", "dep:tar"]
 

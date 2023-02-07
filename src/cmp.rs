@@ -56,6 +56,12 @@ pub trait ApproxEq<O = Self>: PartialEq<O> {
     }
 }
 
+impl<T: ApproxEq> ApproxEq for &'_ T {
+    fn cmp(&self, other: &Self) -> Fields {
+        (**self).cmp(other)
+    }
+}
+
 #[cfg(test)]
 macro_rules! assert_approx_eq {
     ($left:expr, $right:expr, $fields:expr) => {
@@ -77,7 +83,7 @@ macro_rules! assert_approx_eq {
     ($left:expr, $right:expr, $fields:expr, $($arg:tt)+) => {
         assert!(
             crate::cmp::ApproxEq::approx_eq(&$left, &$right, $fields),
-            $arg
+            $($arg)*
         );
     };
 }

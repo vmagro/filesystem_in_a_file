@@ -29,6 +29,8 @@ pub mod archive;
 pub mod btrfs;
 mod bytes_ext;
 pub mod cmp;
+#[cfg(feature = "diff")]
+pub mod diff;
 #[cfg(feature = "dir")]
 mod dir;
 mod entry;

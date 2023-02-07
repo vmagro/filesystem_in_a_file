@@ -55,7 +55,7 @@ mod tests {
         let mut buf = Vec::new();
         f.reader().read_to_end(&mut buf).expect("infallible");
         // file::tests::to_bytes already ensures that to_bytes is correct
-        assert_eq!(buf, f.to_bytes());
+        assert_eq!(buf, f.to_bytes().as_ref());
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::ops::Range;
@@ -61,10 +62,16 @@ impl File {
 
     /// Copy all of the extents in this file into a single contiguous array of
     /// bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut v = Vec::with_capacity(self.len() as usize);
-        self.reader().read_to_end(&mut v).expect("infallible");
-        v
+    pub fn to_bytes<'b>(&'b self) -> Cow<'b, [u8]> {
+        match self.extents.len() {
+            0 => Cow::Borrowed(&[]),
+            1 => Cow::Borrowed(self.extents[&0].data()),
+            _ => {
+                let mut v = Vec::with_capacity(self.len() as usize);
+                self.reader().read_to_end(&mut v).expect("infallible");
+                Cow::Owned(v)
+            }
+        }
     }
 
     /// Find the extent that contains the byte at 'pos'
@@ -163,7 +170,11 @@ pub(self) mod tests {
     #[test]
     fn to_bytes() {
         let f = test_file();
-        assert_eq!(f.to_bytes(), b"Lorem ipsum dolor sit amet", "{f:?}");
+        assert_eq!(
+            f.to_bytes().as_ref(),
+            b"Lorem ipsum dolor sit amet",
+            "{f:?}"
+        );
     }
 
     #[test]
@@ -188,7 +199,7 @@ pub(self) mod tests {
     fn truncate() {
         let mut f = test_file();
         f.truncate(5);
-        assert_eq!(f.to_bytes(), b"Lorem");
+        assert_eq!(f.to_bytes().as_ref(), b"Lorem");
         assert_eq!(f.extents.len(), 1);
 
         let mut f = test_file();

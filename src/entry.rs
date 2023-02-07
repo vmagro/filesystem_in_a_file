@@ -280,6 +280,13 @@ impl Special {
         self.file_type
     }
 
+    pub fn rdev(&self) -> Option<u64> {
+        match self.rdev {
+            0 => None,
+            rdev => Some(rdev),
+        }
+    }
+
     pub fn metadata(&self) -> &Metadata {
         &self.metadata
     }
